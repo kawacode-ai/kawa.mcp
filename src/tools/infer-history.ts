@@ -70,13 +70,16 @@ export const inferHistoryTool = {
   name: 'infer_history',
   description: `Analyze git commit history to extract structured development knowledge (intents, decisions, lessons).
 
-This runs a two-pass LLM pipeline:
-- **Pass 1**: Groups commits into coherent development stories with value hints (high/low/none)
-- **Pass 2**: Deep analysis of each story to extract architectural decisions and lessons learned
+Runs the full pipeline automatically: infer → evolve → persist.
+
+1. **Pass 1**: Groups commits into coherent development stories with value hints
+2. **Pass 2**: Deep analysis of each story to extract architectural decisions and lessons
+3. **Evolution**: Curates decisions by finding relationships (supersedes, reinforces, contradicts, specializes)
+4. **Persist**: Stores curated stories as intents with decisions and lessons (auto-syncs to cloud)
 
 Use \`estimateOnly: true\` first to preview token cost before running the full pipeline.
 
-The pipeline runs asynchronously — this tool returns immediately after starting. Results are delivered via progress updates.
+The pipeline supports checkpointing — if interrupted, re-running resumes from where it left off.
 
 Enrichment tiers control how much context is gathered:
 - Tier 1: Git log only (fastest, cheapest)

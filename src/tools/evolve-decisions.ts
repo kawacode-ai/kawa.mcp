@@ -5,6 +5,8 @@ export const evolveDecisionsSchema = z.object({
   stories: z.array(z.any()).describe('Array of story objects from a previous infer_history run'),
   apiKey: z.string().describe('Anthropic API key for LLM calls (customer\'s own key)'),
   model: z.string().optional().default('claude-haiku-4-5-20251001').describe('Anthropic model for edge classification (default: claude-haiku-4-5-20251001, cheaper model recommended)'),
+  repoPath: z.string().optional().describe('Local path to the repository root (required for auto-persist after evolution)'),
+  repoOrigin: z.string().optional().describe('Git remote origin URL (auto-detected from repoPath if not provided)'),
 })
 
 export type EvolveDecisionsInput = z.infer<typeof evolveDecisionsSchema>
@@ -19,6 +21,8 @@ export async function evolveDecisions(input: EvolveDecisionsInput): Promise<Evol
     stories: input.stories,
     apiKey: input.apiKey,
     model: input.model,
+    repoPath: input.repoPath,
+    repoOrigin: input.repoOrigin,
   })
 
   return {
@@ -41,7 +45,9 @@ This analyzes how decisions relate across stories over time:
 3. **Annotation**: Labels each decision as stable, orphan, evolved, or abandoned
 4. **Curation**: Keeps stable + orphan decisions, drops evolved + abandoned
 
-Run this after \`infer_history\` completes. Pass the stories array from the inference results.
+Note: \`infer_history\` already chains evolve + persist automatically. Use this tool only if you want to run evolution separately on a pre-existing set of stories.
+
+If \`repoPath\` is provided, curated stories are automatically persisted as intents with decisions and lessons after evolution completes.
 
 The pipeline runs asynchronously — returns immediately. Uses a cheaper model (haiku) by default since edge classification requires less reasoning than story analysis.`,
   inputSchema: evolveDecisionsSchema,
