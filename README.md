@@ -47,12 +47,10 @@ and the Kawa Code extensions.
 - **[Kawa Code](https://codeawareness.com/product) desktop app running** — kawa.mcp is a thin MCP-to-IPC adapter; all git operations, storage, and API communication happen in Kawa Code
 - **Active Kawa Code account** — for cloud sync and team features
 
-### Optional (for `kawa-infer` history analysis)
+### Optional (for history inference)
 
-- **Python 3** — runs the inference scripts (`scripts/infer_from_commits.py`, `scripts/evolve_stories.py`)
-- **`anthropic` Python package** — `pip install anthropic` (or use `uv run` — scripts include [PEP 723](https://peps.python.org/pep-0723/) inline metadata)
-- **`ANTHROPIC_API_KEY` environment variable** — Claude API key for LLM-powered commit analysis
-- **[GitHub CLI (`gh`)](https://cli.github.com/)** — enables richer data tiers (PR descriptions, review comments, issue discussions). Without `gh`, inference falls back to Tier 1 (commit messages only)
+- **Anthropic API key** — your own Claude API key, passed as a parameter to the inference tools
+- **[GitHub CLI (`gh`)](https://cli.github.com/)** — enables richer data tiers (PR descriptions, review comments, issue discussions). Without `gh`, tiers 2 and 4 are skipped automatically
 
 ## Installation
 
@@ -160,6 +158,13 @@ Add to your Cursor MCP configuration (`~/.cursor/mcp.json`):
 | `edit_session_decision`   | Edit or delete a decision before intent completion                        |
 | `detect_intent_conflicts` | Detect if current intent decisions conflict with team decisions           |
 
+### History Inference
+
+| Tool               | Description                                                            |
+|--------------------|------------------------------------------------------------------------|
+| `infer_history`    | Analyze git commit history to extract development stories and decisions |
+| `evolve_decisions` | Build a decision evolution graph from previously extracted stories       |
+
 ### Lightweight Logging
 
 | Tool       | Description                                                                                    |
@@ -180,48 +185,60 @@ The server exposes resources that can be monitored:
 
 - **`kawa://intent/active`**: Real-time view of the currently active intent for the connected repository (JSON format)
 
-## Intent Inference Tool
+## History Inference
 
-The `kawa-infer` tool analyzes commit history to automatically create intents, decisions, and lessons for past work — useful for bootstrapping a repository with historical context.
+Two MCP tools analyze git commit history to extract structured development knowledge — useful for bootstrapping a repository with historical context.
 
-### Setup
+### `infer_history`
 
-```bash
-# Install the Python dependency (one of):
-pip install anthropic          # pip
-uv pip install anthropic       # uv
+Runs a two-pass LLM pipeline on git commit history:
 
-# Set your API key
-export ANTHROPIC_API_KEY=sk-ant-...
+- **Pass 1**: Groups commits into coherent development stories with value hints (high/low/none)
+- **Pass 2**: Deep analysis of high/low-value stories to extract architectural decisions and lessons learned
 
-# Optional: install gh CLI for richer data (PR comments, issues)
-# https://cli.github.com/
+The pipeline runs asynchronously inside Kawa Code. Progress is shown in the Kawa Code desktop app via a progress bar. The pipeline supports checkpointing — if interrupted, re-running resumes from where it left off.
+
+**Usage in Claude Code:**
+
+```
+Use the infer_history tool with estimateOnly: true to preview the cost first,
+then run it with estimateOnly: false.
 ```
 
-### Usage
+**Parameters:**
 
-```bash
-npx kawa-infer /path/to/your/repo --commits 200
-```
+| Parameter              | Type    | Default                    | Description                                                            |
+|------------------------|---------|----------------------------|------------------------------------------------------------------------|
+| `repoPath`             | string  | *(required)*               | Local path to the repository root                                      |
+| `apiKey`               | string  | *(required)*               | Your Anthropic API key                                                 |
+| `commits`              | number  | 50                         | Number of recent commits to analyze                                    |
+| `tier`                 | number  | 4                          | Data enrichment tier (1-5, see below)                                  |
+| `model`                | string  | claude-sonnet-4-20250514   | Anthropic model to use                                                 |
+| `maxStories`           | number  | 0                          | Limit stories to analyze in Pass 2 (0 = unlimited)                     |
+| `allowCommitSplitting` | boolean | false                      | Allow splitting a commit into multiple stories when it contains unrelated changes (recommended for repos with messy commit history) |
+| `contextIssues`        | boolean | false                      | Include context issues from commit date range (tier 4 only)            |
+| `estimateOnly`         | boolean | false                      | Preview token cost without running the pipeline                        |
 
-**Options:**
+### `evolve_decisions`
 
-| Flag               | Description                                                        |
-|--------------------|--------------------------------------------------------------------|
-| `--commits N`      | Number of recent commits to analyze (default: 50)                  |
-| `--tier {1-5}`     | Data enrichment tier (default: 4, see below)                       |
-| `--dry-run`        | Show what would be created without writing anything                |
-| `--estimate-only`  | Show token/cost estimate and exit                                  |
-| `--output FILE`    | Write results to JSON file                                         |
-| `--max-stories N`  | Limit number of stories to generate                                |
-| `--model MODEL`    | Claude model to use (default: haiku)                               |
-| `--no-rate-limit`  | Disable rate limiting (for higher API tiers)                       |
-| `--context-issues` | Include contextual issues from commit date range (requires tier 4) |
-| `--resume FILE`    | Resume from a previous cache file                                  |
+Builds a decision evolution graph from previously extracted stories — identifying how decisions relate across stories over time:
+
+1. **Bucketing**: Groups stories by file overlap and keyword similarity
+2. **Edge classification**: Uses LLM to identify relationships (supersedes, reinforces, contradicts, specializes)
+3. **Annotation**: Labels each decision as stable, orphan, evolved, or abandoned
+4. **Curation**: Keeps stable + orphan decisions, drops evolved + abandoned
+
+**Parameters:**
+
+| Parameter | Type   | Default                       | Description                                     |
+|-----------|--------|-------------------------------|-------------------------------------------------|
+| `stories` | array  | *(required)*                  | Story objects from a previous `infer_history` run |
+| `apiKey`  | string | *(required)*                  | Your Anthropic API key                           |
+| `model`   | string | claude-haiku-4-5-20251001     | Anthropic model (cheaper model recommended)      |
 
 ### Data Tiers
 
-Each tier adds more context for better inference. Higher tiers require `gh` CLI authenticated.
+Each tier adds more context for better inference. Higher tiers require the [`gh` CLI](https://cli.github.com/) authenticated.
 
 | Tier | Data source                                        | Requires `gh` |
 |------|----------------------------------------------------|---------------|
@@ -230,18 +247,6 @@ Each tier adds more context for better inference. Higher tiers require `gh` CLI 
 | 3    | + Diffs for revert commits                         | No            |
 | 4    | + Referenced GitHub issues (default)               | Yes           |
 | 5    | + Diffs for all commits with annotation extraction | No            |
-
-Without `gh`, tiers 2 and 4 are skipped automatically.
-
-### Decision Evolution
-
-After extracting stories, use `evolve_stories.py` to build a decision evolution graph — identifying how decisions relate across stories (supersession, reinforcement, contradiction, specialization):
-
-```bash
-python3 scripts/evolve_stories.py results.json --output curated.json
-python3 scripts/evolve_stories.py results.json --dry-run        # preview only
-python3 scripts/evolve_stories.py results.json --buckets-only   # show file-overlap buckets
-```
 
 ## Development
 

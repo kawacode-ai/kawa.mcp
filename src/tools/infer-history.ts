@@ -9,6 +9,7 @@ export const inferHistorySchema = z.object({
   contextIssues: z.boolean().optional().default(false).describe('Include context issues from commit date range (Tier 4 only)'),
   model: z.string().optional().default('claude-sonnet-4-20250514').describe('Anthropic model to use (default: claude-sonnet-4-20250514)'),
   maxStories: z.number().optional().default(0).describe('Maximum stories to analyze in Pass 2 (0 = unlimited)'),
+  allowCommitSplitting: z.boolean().optional().default(false).describe('Allow splitting a single commit into multiple stories when it contains unrelated changes (recommended for repos with messy commit history)'),
   estimateOnly: z.boolean().optional().default(false).describe('If true, only estimate token cost without running the pipeline'),
 })
 
@@ -56,6 +57,7 @@ export async function inferHistory(input: InferHistoryInput): Promise<InferHisto
     contextIssues: input.contextIssues,
     model: input.model,
     maxStories: input.maxStories,
+    allowCommitSplitting: input.allowCommitSplitting,
   })
 
   return {
