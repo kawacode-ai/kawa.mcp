@@ -191,10 +191,12 @@ Two MCP tools analyze git commit history to extract structured development knowl
 
 ### `infer_history`
 
-Runs a two-pass LLM pipeline on git commit history:
+Runs the full pipeline automatically: **infer → evolve → persist**.
 
-- **Pass 1**: Groups commits into coherent development stories with value hints (high/low/none)
-- **Pass 2**: Deep analysis of high/low-value stories to extract architectural decisions and lessons learned
+1. **Pass 1**: Groups commits into coherent development stories with value hints (high/low/none)
+2. **Pass 2**: Deep analysis of high/low-value stories to extract architectural decisions and lessons learned
+3. **Evolution**: Curates decisions by finding relationships (supersedes, reinforces, contradicts, specializes)
+4. **Persist**: Stores curated stories as intents with decisions and lessons (auto-syncs to cloud)
 
 The pipeline runs asynchronously inside Kawa Code. Progress is shown in the Kawa Code desktop app via a progress bar. The pipeline supports checkpointing — if interrupted, re-running resumes from where it left off.
 
@@ -221,20 +223,24 @@ then run it with estimateOnly: false.
 
 ### `evolve_decisions`
 
-Builds a decision evolution graph from previously extracted stories — identifying how decisions relate across stories over time:
+Builds a decision evolution graph from previously extracted stories — identifying how decisions relate across stories over time. Note: `infer_history` already chains evolve + persist automatically. Use this tool only if you want to run evolution separately on a pre-existing set of stories.
 
 1. **Bucketing**: Groups stories by file overlap and keyword similarity
 2. **Edge classification**: Uses LLM to identify relationships (supersedes, reinforces, contradicts, specializes)
 3. **Annotation**: Labels each decision as stable, orphan, evolved, or abandoned
 4. **Curation**: Keeps stable + orphan decisions, drops evolved + abandoned
 
+If `repoPath` is provided, curated stories are automatically persisted as intents with decisions and lessons after evolution completes.
+
 **Parameters:**
 
-| Parameter | Type   | Default                       | Description                                     |
-|-----------|--------|-------------------------------|-------------------------------------------------|
-| `stories` | array  | *(required)*                  | Story objects from a previous `infer_history` run |
-| `apiKey`  | string | *(required)*                  | Your Anthropic API key                           |
-| `model`   | string | claude-haiku-4-5-20251001     | Anthropic model (cheaper model recommended)      |
+| Parameter    | Type   | Default                       | Description                                                        |
+|--------------|--------|-------------------------------|--------------------------------------------------------------------|
+| `stories`    | array  | *(required)*                  | Story objects from a previous `infer_history` run                  |
+| `apiKey`     | string | *(required)*                  | Your Anthropic API key                                             |
+| `model`      | string | claude-haiku-4-5-20251001     | Anthropic model (cheaper model recommended)                        |
+| `repoPath`   | string | *(optional)*                  | Local path to repository root (required for auto-persist)          |
+| `repoOrigin` | string | *(optional)*                  | Git remote origin URL (auto-detected from repoPath if not provided)|
 
 ### Data Tiers
 
