@@ -1,0 +1,75 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+<!-- Replace with a 1-2 sentence description of your project -->
+[Your project name] is a [brief description of what it does].
+
+## AI Code Implementation Workflow
+
+**BEFORE exploring code or reading files** for any non-trivial task, follow these steps in order:
+
+1. **Check active intent**: Call `check_active_intent` (kawa-intents MCP) to see if work is already tracked
+2. **Get relevant context**: Call `get_relevant_context` with a description of the task to find past decisions and related intents that may inform your approach
+3. **Then explore code**: Now read files, search the codebase, and analyze the problem
+
+For trivial one-line fixes (typos, obvious bugs), skip the above and use `log_work` after completing the change. For everything else — especially bug fixes from issues, multi-file changes, or unfamiliar code — always start with steps 1-2.
+
+**Committing pre-existing changes**: When uncommitted changes exist that weren't made under an active intent, infer intents retroactively: read the diffs, group changes by semantic purpose, call `list_team_intents` to find existing intents that accurately match each group, then commit each group under its matched intent (create a new intent if no accurate match found). Present the grouping plan to the user before committing. Use `log_work` for trivial standalone changes.
+
+## Decision Recording
+
+When implementing code, call `record_decision` when you:
+- **Choose between two or more viable approaches** (type: `fork`) — e.g., picked library A over B, chose one algorithm over another
+- **Try an approach and reject it** (type: `abandoned`) — e.g., started with approach X but switched due to a limitation
+- **Discover unexpected behavior or limitations** (type: `discovery`) — e.g., found that an API doesn't support a needed feature
+- **Identify a hard constraint** (type: `constraint`) — e.g., must maintain backwards compatibility with existing data
+- **Make an explicit tradeoff** (type: `tradeoff`) — e.g., chose simplicity over performance
+- **Select a library or dependency** (type: `dependency`) — e.g., chose `reqwest` over `hyper` for HTTP
+
+Focus on decisions that a teammate or future developer would want to know about. You do NOT need to record every micro-decision (variable naming, formatting, trivial code organization). The goal is to capture the reasoning behind choices that shape the codebase — not to create a log of every thought.
+
+### Repository Origin and Path
+
+Use these values for ALL MCP tool calls:
+
+<!-- Replace with your actual values -->
+- `repoOrigin`: `git@github.com:your-org/your-repo.git`
+- `repoPath`: `/absolute/path/to/your-repo`
+
+**Important**: `repoPath` must point to the directory containing the `.git` folder.
+
+<!-- ============================================================
+     EVERYTHING BELOW IS OPTIONAL — add what's useful for your project
+     ============================================================ -->
+
+<!-- OPTIONAL: For monorepos or multi-project workspaces, replace the
+     single repoOrigin/repoPath above with a table:
+
+### Repository Origins and Paths
+
+Each sub-project has its own `.git` directory. When calling MCP tools, use the **sub-project path** (not the parent directory) as `repoPath`:
+
+| Sub-project | `repoOrigin`                            | `repoPath`                       |
+|-------------|-----------------------------------------|----------------------------------|
+| my-api      | `git@github.com:my-org/my-api.git`      | `/path/to/workspace/my-api`      |
+| my-frontend | `git@github.com:my-org/my-frontend.git` | `/path/to/workspace/my-frontend` |
+-->
+
+<!-- OPTIONAL: Add project-specific sections as needed.
+     Examples of what to include:
+
+## Development Commands
+- How to run tests, lint, build, etc.
+
+## Code Style
+- Project conventions Claude should follow
+
+## Architecture
+- Key architectural decisions or patterns
+
+## Important Files
+- Files Claude should know about
+-->

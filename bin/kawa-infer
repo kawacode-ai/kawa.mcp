@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Thin wrapper to run infer_from_commits.py via npx
+# Usage: npx kawa-infer /path/to/repo [options]
+
+set -e
+
+# Resolve symlinks (npx symlinks bin/ into a temp .bin/ directory)
+SOURCE="$0"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  # Handle relative symlinks
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd "$(dirname "$SOURCE")/../scripts" && pwd)"
+
+if ! command -v python3 &>/dev/null; then
+  echo "Error: python3 is required but not found on PATH" >&2
+  exit 1
+fi
+
+exec python3 "$SCRIPT_DIR/infer_from_commits.py" "$@"
