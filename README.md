@@ -55,7 +55,7 @@ After checking out the correct tag, run `npm install && npm run build` to rebuil
 ### Required
 
 - **Node.js >= 18.0.0** — runtime for the MCP server
-- **[Kawa Code](https://github.com/codeawareness/kawa.muninn) desktop app running** — kawa.mcp is a thin MCP-to-IPC adapter; all git operations, storage, and API communication happen in Kawa Code
+- **[Kawa Code](https://codeawareness.com/product) desktop app running** — kawa.mcp is a thin MCP-to-IPC adapter; all git operations, storage, and API communication happen in Kawa Code
 - **Active Kawa Code account** — for cloud sync and team features
 
 ### Optional (for `kawa-infer` history analysis)
@@ -144,9 +144,9 @@ Add to your Cursor MCP configuration (`~/.cursor/mcp.json`):
 
 ### Context & Discovery
 
-| Tool                   | Description                                                                                                     |
-|------------------------|-----------------------------------------------------------------------------------------------------------------|
-| `get_relevant_context` | Get context relevant to a specific task - extracts keywords from prompt and finds related intents and decisions |
+| Tool                   | Description                             |
+|------------------------|-----------------------------------------|
+| `get_relevant_context` | Get context relevant to a specific task |
 
 ### Intent Management
 
@@ -176,39 +176,6 @@ Add to your Cursor MCP configuration (`~/.cursor/mcp.json`):
 | Tool       | Description                                                                                    |
 |------------|------------------------------------------------------------------------------------------------|
 | `log_work` | Log completed work without the full intent lifecycle — use for quick fixes and trivial changes |
-
-## Typical Workflow
-
-### Session Start
-
-1. **Check for active intent**: Call `check_active_intent` to see if work is already in progress
-2. **Get relevant context**: Call `get_relevant_context` with a description of the task to find past decisions and related intents
-
-### Starting New Work
-
-3. **Create intent if needed**: Call `create_and_activate_intent` with:
-   - Title (concise, descriptive)
-   - Description (what you're accomplishing)
-   - Template type (feature/refactor/exploration)
-   - Optional constraints
-
-### During Implementation
-
-4. **Check for conflicts**: Call `get_intents_for_file` before modifying files
-5. **Record decisions**: Call `record_decision` when making architectural choices
-
-### Finishing Work
-
-6. **Assign blocks**: Call `assign_blocks_to_intent` with all modified file ranges
-7. **Review decisions**: Call `get_session_decisions` to review what was recorded
-8. **Git commit**: Create commit with intent context
-9. **Complete intent**: Call `complete_intent` with commit SHA and status
-
-### Team Awareness
-
-- **Before modifying code**: Check `get_intents_for_file` and `get_intents_for_lines` for conflicts
-- **View team work**: Call `list_team_intents` to see active team members
-- **Detect conflicts**: Call `detect_intent_conflicts` before completing intent
 
 ## MCP Capabilities
 
@@ -250,30 +217,30 @@ npx kawa-infer /path/to/your/repo --commits 200
 
 **Options:**
 
-| Flag | Description |
-|------|-------------|
-| `--commits N` | Number of recent commits to analyze (default: 50) |
-| `--tier {1-5}` | Data enrichment tier (default: 4, see below) |
-| `--dry-run` | Show what would be created without writing anything |
-| `--estimate-only` | Show token/cost estimate and exit |
-| `--output FILE` | Write results to JSON file |
-| `--max-stories N` | Limit number of stories to generate |
-| `--model MODEL` | Claude model to use (default: haiku) |
-| `--no-rate-limit` | Disable rate limiting (for higher API tiers) |
+| Flag               | Description                                                        |
+|--------------------|--------------------------------------------------------------------|
+| `--commits N`      | Number of recent commits to analyze (default: 50)                  |
+| `--tier {1-5}`     | Data enrichment tier (default: 4, see below)                       |
+| `--dry-run`        | Show what would be created without writing anything                |
+| `--estimate-only`  | Show token/cost estimate and exit                                  |
+| `--output FILE`    | Write results to JSON file                                         |
+| `--max-stories N`  | Limit number of stories to generate                                |
+| `--model MODEL`    | Claude model to use (default: haiku)                               |
+| `--no-rate-limit`  | Disable rate limiting (for higher API tiers)                       |
 | `--context-issues` | Include contextual issues from commit date range (requires tier 4) |
-| `--resume FILE` | Resume from a previous cache file |
+| `--resume FILE`    | Resume from a previous cache file                                  |
 
 ### Data Tiers
 
 Each tier adds more context for better inference. Higher tiers require `gh` CLI authenticated.
 
-| Tier | Data source | Requires `gh` |
-|------|-------------|---------------|
-| 1 | Commit messages + numstat | No |
-| 2 | + PR descriptions and review comments | Yes |
-| 3 | + Diffs for revert commits | No |
-| 4 | + Referenced GitHub issues (default) | Yes |
-| 5 | + Diffs for all commits with annotation extraction | No |
+| Tier | Data source                                        | Requires `gh` |
+|------|----------------------------------------------------|---------------|
+| 1    | Commit messages + numstat                          | No            |
+| 2    | + PR descriptions and review comments              | Yes           |
+| 3    | + Diffs for revert commits                         | No            |
+| 4    | + Referenced GitHub issues (default)               | Yes           |
+| 5    | + Diffs for all commits with annotation extraction | No            |
 
 Without `gh`, tiers 2 and 4 are skipped automatically.
 
@@ -317,7 +284,6 @@ To test the MCP server without integrating it into an AI assistant:
 - Use `npm run dev` to auto-rebuild during development
 - Check stderr for server logs (stdout is reserved for MCP protocol)
 - Ensure Kawa Code is running before testing
-- Use the `debug_intent_storage` tool to inspect storage state
 
 ## Architecture
 
@@ -341,45 +307,6 @@ The MCP server communicates with Kawa Code using the Huginn IPC protocol:
 - **Decision tracking**: Record, retrieve, edit, conflict detection
 
 Kawa Code's Gardener module handles all git operations, diff generation, and local storage of encrypted data.
-
-## Troubleshooting
-
-### Connection Issues
-
-**"Kawa Code not running" error:**
-- Ensure Kawa Code desktop app is running
-- Check that Kawa Code is logged in to a Kawa account
-- Verify Unix socket exists: `ls ~/.kawa-code/sockets/` (macOS/Linux) or check named pipes (Windows)
-
-**"Failed to connect to Huginn" error:**
-- Restart Kawa Code application
-- Check Kawa Code logs for IPC server errors
-- Verify no other process is using the socket/pipe
-
-### Tool Errors
-
-**"Repository not found" error:**
-- Ensure `repoPath` points to a valid git repository
-- Verify `repoOrigin` matches `git remote -v` output
-- Check that Kawa Code has synced this repository (may take a few seconds after first activation)
-
-**"No active intent" error:**
-- This is normal if you haven't created an intent yet
-- Call `create_and_activate_intent` to start tracking work
-
-**"Intent conflicts detected" error:**
-- Review the conflicting intents and coordinate with team members
-- Consider working on different files or waiting for the other intent to complete
-
-### Debug Tools
-
-Use `debug_intent_storage` to inspect the current state of intent storage:
-```json
-{
-  "repoOrigin": "git@github.com:user/repo.git",
-  "repoPath": "/path/to/repo"
-}
-```
 
 ## Contributing
 
