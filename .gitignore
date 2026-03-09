@@ -25,5 +25,4 @@ npm-debug.log*
 
 backup
 *.ckpt
-*.json
 **/__pycache__/**
