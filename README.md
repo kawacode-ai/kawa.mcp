@@ -39,17 +39,6 @@ and the Kawa Code extensions.
 - **Commit Integration**: Link all code changes to intent context for better git history
 - **Cross-Platform**: Works with Claude Code and Cursor AI via MCP protocol
 
-## Version Compatibility
-
-Use the version of kawa.mcp that matches your Kawa Code version:
-
-| Kawa Code version | kawa.mcp version | Install command       |
-|-------------------|------------------|-----------------------|
-| 4.0.2             | v4.0.2           | `git checkout v4.0.2` |
-| 5.0.0+ (latest)   | v5.0.0           | `git checkout v5.0.0` |
-
-After checking out the correct tag, run `npm install && npm run build` to rebuild.
-
 ## Prerequisites
 
 ### Required
