@@ -237,7 +237,7 @@ function getZodSchema(zodType: any): Record<string, any> {
     case 'ZodBoolean':
       return { type: 'boolean' }
     case 'ZodArray':
-      return { type: 'array' }
+      return { type: 'array', items: getZodSchema(zodType._def.type) }
     case 'ZodObject':
       return { type: 'object' }
     case 'ZodEnum':
@@ -245,6 +245,10 @@ function getZodSchema(zodType: any): Record<string, any> {
     case 'ZodOptional':
     case 'ZodDefault':
       return getZodSchema(zodType._def.innerType)
+    case 'ZodAny':
+    case 'ZodUnknown':
+    case 'ZodRecord':
+      return { type: 'object' }
     default:
       return { type: 'string' }
   }
