@@ -17,21 +17,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 For trivial one-line fixes (typos, obvious bugs), skip the above and use `log_work` after completing the change. For everything else — especially bug fixes from issues, multi-file changes, or unfamiliar code — always start with steps 1-2.
 
+**Recording decisions before commit**: When the user asks to finalize/commit, review the work done in the session and call `record_decision` for each significant decision or lesson *before* creating the commit. Only record non-trivial items — skip obvious choices and routine implementation details. Record when you:
+- Chose between meaningful alternatives (type: `fork`) — e.g., serde alias vs fixing all reconstruction sites
+- Discovered unexpected behavior or gotchas (type: `discovery`) — e.g., UI progress tracking requires completion events per phase
+- Identified a hard constraint that future work must respect (type: `constraint`) — e.g., checkpoint cleanup must wait for persistence
+- Made an explicit trade-off (type: `tradeoff`) — e.g., precision vs simplicity in rate limiting
+- Tried and rejected an approach (type: `abandoned`)
+- Selected a library or dependency (type: `dependency`) — e.g., chose `reqwest` over `hyper` for HTTP
+
+Do NOT record: routine refactors, obvious bug fixes, version bumps, formatting changes, or decisions with no meaningful alternatives.
+
 **Committing pre-existing changes**: When uncommitted changes exist that weren't made under an active intent, infer intents retroactively: read the diffs, group changes by semantic purpose, call `list_team_intents` to find existing intents that accurately match each group, then commit each group under its matched intent (create a new intent if no accurate match found). Present the grouping plan to the user before committing. Use `log_work` for trivial standalone changes.
 
-## Decision Recording
-
-When implementing code, call `record_decision` when you:
-- **Choose between two or more viable approaches** (type: `fork`) — e.g., picked library A over B, chose one algorithm over another
-- **Try an approach and reject it** (type: `abandoned`) — e.g., started with approach X but switched due to a limitation
-- **Discover unexpected behavior or limitations** (type: `discovery`) — e.g., found that an API doesn't support a needed feature
-- **Identify a hard constraint** (type: `constraint`) — e.g., must maintain backwards compatibility with existing data
-- **Make an explicit tradeoff** (type: `tradeoff`) — e.g., chose simplicity over performance
-- **Select a library or dependency** (type: `dependency`) — e.g., chose `reqwest` over `hyper` for HTTP
-
-Focus on decisions that a teammate or future developer would want to know about. You do NOT need to record every micro-decision (variable naming, formatting, trivial code organization). The goal is to capture the reasoning behind choices that shape the codebase — not to create a log of every thought.
-
-### Repository Origin and Path
+## Repository Origin and Path
 
 Use these values for ALL MCP tool calls:
 
