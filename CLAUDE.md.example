@@ -17,15 +17,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 For trivial one-line fixes (typos, obvious bugs), skip the above and use `log_work` after completing the change. For everything else — especially bug fixes from issues, multi-file changes, or unfamiliar code — always start with steps 1-2.
 
-**Recording decisions before commit**: When the user asks to finalize/commit, review the work done in the session and call `record_decision` for each significant decision or lesson *before* creating the commit. Only record non-trivial items — skip obvious choices and routine implementation details. Record when you:
-- Chose between meaningful alternatives (type: `fork`) — e.g., serde alias vs fixing all reconstruction sites
-- Discovered unexpected behavior or gotchas (type: `discovery`) — e.g., UI progress tracking requires completion events per phase
-- Identified a hard constraint that future work must respect (type: `constraint`) — e.g., checkpoint cleanup must wait for persistence
-- Made an explicit trade-off (type: `tradeoff`) — e.g., precision vs simplicity in rate limiting
-- Tried and rejected an approach (type: `abandoned`)
-- Selected a library or dependency (type: `dependency`) — e.g., chose `reqwest` over `hyper` for HTTP
+**Recording decisions before commit**: When the user asks to finalize/commit, review the work done in the session and call `record_decision` for each significant decision or lesson *before* creating the commit. Apply a **high bar**: a decision is worth recording only if a future developer (or Claude in a future session) would genuinely benefit from knowing it — i.e., it would change how they approach the same area of code.
 
-Do NOT record: routine refactors, obvious bug fixes, version bumps, formatting changes, or decisions with no meaningful alternatives.
+Record when you:
+- Chose between meaningful alternatives (type: `fork`) — e.g., serde alias vs fixing all reconstruction sites
+- Discovered non-obvious behavior that will recur or affect future work (type: `discovery`) — e.g., UI progress tracking requires completion events per phase
+- Identified a hard constraint that future work must respect (type: `constraint`) — e.g., checkpoint cleanup must wait for persistence
+- Made an explicit trade-off with lasting impact (type: `tradeoff`) — e.g., precision vs simplicity in rate limiting
+- Tried and rejected an approach that looked reasonable (type: `abandoned`)
+- Selected a library or dependency after comparing alternatives (type: `dependency`) — e.g., chose `reqwest` over `hyper` for HTTP
+
+Do NOT record:
+- Routine refactors, obvious bug fixes, version bumps, formatting changes
+- Session-only debugging artifacts (e.g., a stray `test.only` or `console.log` that was removed)
+- Anything where the "lesson" is obvious in hindsight or already clear from the code/diff
+- Gotchas with no future recurrence risk (one-off typos, copy-paste errors, trivial config mistakes)
+- Decisions with no meaningful alternatives considered
 
 **Committing pre-existing changes**: When uncommitted changes exist that weren't made under an active intent, infer intents retroactively: read the diffs, group changes by semantic purpose, call `list_team_intents` to find existing intents that accurately match each group, then commit each group under its matched intent (create a new intent if no accurate match found). Present the grouping plan to the user before committing. Use `log_work` for trivial standalone changes.
 
