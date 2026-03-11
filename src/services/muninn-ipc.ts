@@ -38,7 +38,6 @@ let connected = false
 let cawId = ''
 let connectionPromise: Promise<void> | null = null
 const pendingRequests = new Map<string, PendingRequest>()
-const ensuredRepoPaths = new Set<string>()
 
 /**
  * Get the default Muninn socket path for the current platform.
@@ -273,14 +272,13 @@ export async function request(domain: string, action: string, data: any = {}): P
 /**
  * Ensure a repository path is registered with Muninn as a project.
  *
- * Sends `code:add` with the folder path so Muninn sets up git state,
- * file watchers, and sync capability. Skips if already ensured this session.
+ * Sends `code:add` with the folder path so Muninn activates the project,
+ * sets up git state, and pulls intents/decisions/lessons from the API.
+ * Always sends the request — Muninn's AddHandler is idempotent and
+ * returns the existing project if already added.
  * Errors are logged but not thrown — repo registration is best-effort.
  */
 export async function ensureRepo(repoPath: string): Promise<void> {
-  if (ensuredRepoPaths.has(repoPath)) return
-  ensuredRepoPaths.add(repoPath)
-
   try {
     await request('code', 'add', { folder: repoPath })
   } catch (err) {
