@@ -1,15 +1,26 @@
 {
-  "name": "kawa.mcp",
-  "version": "5.0.0",
+  "name": "@kawacode/mcp",
+  "version": "5.0.4",
   "description": "MCP server for Kawa Code intent integration with Claude Code and Cursor AI",
   "main": "build/index.js",
+  "bin": {
+    "kawacode-mcp": "build/index.js"
+  },
   "type": "module",
   "license": "SEE LICENSE IN LICENSE",
+  "files": [
+    "build",
+    "LICENSE",
+    "README.md",
+    "CLAUDE.md.example"
+  ],
+  "mcpName": "ai.kawacode/mcp",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node build/index.js",
-    "clean": "rm -rf build"
+    "clean": "rm -rf build",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

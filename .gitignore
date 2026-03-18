@@ -23,6 +23,10 @@ npm-debug.log*
 .env
 .env.local
 
+# MCP Registry
+mcp-registry-key.pem
+.mcpregistry_*
+
 backup
 *.ckpt
 **/__pycache__/**
