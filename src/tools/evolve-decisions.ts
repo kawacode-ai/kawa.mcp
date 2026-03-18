@@ -3,7 +3,6 @@ import { request } from '../services/muninn-ipc.js'
 
 export const evolveDecisionsSchema = z.object({
   stories: z.array(z.any()).describe('Array of story objects from a previous infer_history run'),
-  apiKey: z.string().describe('Anthropic API key for LLM calls (customer\'s own key)'),
   model: z.string().optional().default('claude-haiku-4-5-20251001').describe('Anthropic model for edge classification (default: claude-haiku-4-5-20251001, cheaper model recommended)'),
   repoPath: z.string().optional().describe('Local path to the repository root (required for auto-persist after evolution)'),
   repoOrigin: z.string().optional().describe('Git remote origin URL (auto-detected from repoPath if not provided)'),
@@ -19,7 +18,6 @@ export interface EvolveDecisionsResponse {
 export async function evolveDecisions(input: EvolveDecisionsInput): Promise<EvolveDecisionsResponse> {
   const res = await request('inference', 'evolve', {
     stories: input.stories,
-    apiKey: input.apiKey,
     model: input.model,
     repoPath: input.repoPath,
     repoOrigin: input.repoOrigin,

@@ -3,9 +3,8 @@ import { request } from '../services/muninn-ipc.js'
 
 export const inferHistorySchema = z.object({
   repoPath: z.string().describe('Local path to the repository root'),
-  apiKey: z.string().describe('Anthropic API key for LLM calls (customer\'s own key)'),
   commits: z.number().optional().default(50).describe('Number of recent commits to analyze (default: 50)'),
-  tier: z.number().optional().default(4).describe('Enrichment tier 1-5: 1=git log, 2=+PR descriptions, 3=+revert diffs, 4=+issue discussions, 5=+full diffs (default: 4)'),
+  tier: z.number().optional().default(5).describe('Enrichment tier 1-5: 1=git log, 2=+PR descriptions, 3=+revert diffs, 4=+issue discussions, 5=+full diffs (default: 5)'),
   contextIssues: z.boolean().optional().default(false).describe('Include context issues from commit date range (Tier 4 only)'),
   model: z.string().optional().default('claude-sonnet-4-20250514').describe('Anthropic model to use (default: claude-sonnet-4-20250514)'),
   maxStories: z.number().optional().default(0).describe('Maximum stories to analyze in Pass 2 (0 = unlimited)'),
@@ -35,7 +34,6 @@ export async function inferHistory(input: InferHistoryInput): Promise<InferHisto
   if (input.estimateOnly) {
     const res = await request('inference', 'estimate', {
       repoPath: input.repoPath,
-      apiKey: input.apiKey,
       commits: input.commits,
       tier: input.tier,
       contextIssues: input.contextIssues,
@@ -51,7 +49,6 @@ export async function inferHistory(input: InferHistoryInput): Promise<InferHisto
 
   const res = await request('inference', 'run', {
     repoPath: input.repoPath,
-    apiKey: input.apiKey,
     commits: input.commits,
     tier: input.tier,
     contextIssues: input.contextIssues,
