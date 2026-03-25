@@ -45,7 +45,7 @@ This analyzes how decisions relate across stories over time:
 
 Note: \`infer_history\` already chains evolve + persist automatically. Use this tool only if you want to run evolution separately on a pre-existing set of stories.
 
-If \`repoPath\` is provided, curated stories are automatically persisted as intents with decisions and lessons after evolution completes.
+If \`repoPath\` is provided, curated stories are automatically persisted as intents with decisions after evolution completes.
 
 The pipeline runs asynchronously — returns immediately. Uses a cheaper model (haiku) by default since edge classification requires less reasoning than story analysis.`,
   inputSchema: evolveDecisionsSchema,

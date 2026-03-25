@@ -19,6 +19,7 @@ export const recordDecisionSchema = z.object({
   context: z.string().optional().describe('What we were trying to accomplish when this decision was made'),
   alternatives: z.array(z.string()).optional().describe('Other options that were considered'),
   consequences: z.string().optional().describe('Downstream implications of this decision'),
+  symptom: z.string().optional().describe('Observable symptom that indicates this decision is relevant (e.g., error messages, runtime panics, unexpected behavior). Useful for discovery and constraint decisions.'),
   relatedFiles: z.array(z.string()).optional().describe('File paths affected by this decision'),
   constraintsChecked: z.array(z.string()).optional().describe('Which architectural constraints were verified before this decision'),
   constraintViolations: z.array(constraintViolationSchema).optional()
@@ -43,6 +44,7 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
     context: input.context,
     alternatives: input.alternatives || [],
     consequences: input.consequences,
+    symptom: input.symptom,
     relatedFiles: input.relatedFiles || [],
     constraintsChecked: input.constraintsChecked || [],
     constraintViolations: input.constraintViolations || [],

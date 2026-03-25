@@ -273,7 +273,7 @@ export async function request(domain: string, action: string, data: any = {}): P
  * Ensure a repository path is registered with Muninn as a project.
  *
  * Sends `code:add` with the folder path so Muninn activates the project,
- * sets up git state, and pulls intents/decisions/lessons from the API.
+ * sets up git state, and pulls intents/decisions from the API.
  * Always sends the request — Muninn's AddHandler is idempotent and
  * returns the existing project if already added.
  * Errors are logged but not thrown — repo registration is best-effort.

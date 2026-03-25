@@ -65,14 +65,14 @@ export async function inferHistory(input: InferHistoryInput): Promise<InferHisto
 
 export const inferHistoryTool = {
   name: 'infer_history',
-  description: `Analyze git commit history to extract structured development knowledge (intents, decisions, lessons).
+  description: `Analyze git commit history to extract structured development knowledge (intents and decisions).
 
 Runs the full pipeline automatically: infer → evolve → persist.
 
 1. **Pass 1**: Groups commits into coherent development stories with value hints
-2. **Pass 2**: Deep analysis of each story to extract architectural decisions and lessons
+2. **Pass 2**: Deep analysis of each story to extract architectural decisions
 3. **Evolution**: Curates decisions by finding relationships (supersedes, reinforces, contradicts, specializes)
-4. **Persist**: Stores curated stories as intents with decisions and lessons (auto-syncs to cloud)
+4. **Persist**: Stores curated stories as intents with decisions (auto-syncs to cloud)
 
 Use \`estimateOnly: true\` first to preview token cost before running the full pipeline.
 

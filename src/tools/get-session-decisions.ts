@@ -25,6 +25,7 @@ export interface DecisionPoint {
   context?: string
   alternatives: string[]
   consequences?: string
+  symptom?: string
   relatedFiles: string[]
   constraintsChecked: string[]
   constraintViolations: ConstraintViolation[]
