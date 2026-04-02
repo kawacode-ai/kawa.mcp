@@ -5,6 +5,7 @@ import { resolveOrigin } from './resolve-origin.js'
 export const completeIntentSchema = z.object({
   repoOrigin: z.string().optional().describe('Git remote origin URL. Auto-detected from repoPath via git if not provided.'),
   repoPath: z.string().describe('Local path to the repository root'),
+  intentId: z.string().optional().describe('Expected intent ID to complete. If provided, the tool verifies this matches the active intent and rejects if mismatched (prevents race conditions with concurrent sessions).'),
   commitSha: z.string().optional().describe('The git commit SHA to associate with this intent (if already committed)'),
   status: z.enum(['committed', 'pushed', 'done', 'abandoned']).default('committed')
     .describe('The new status for the intent. Use "committed" after git commit, "done" when work is complete, "abandoned" to discard.')
@@ -23,6 +24,35 @@ export interface CompleteIntentResponse {
 
 export async function completeIntent(input: CompleteIntentInput): Promise<CompleteIntentResponse> {
   const actualOrigin = resolveOrigin(input.repoOrigin, input.repoPath)
+
+  // If intentId provided, verify it matches the active intent before completing
+  if (input.intentId) {
+    const activeRes = await request('intent', 'get-active', { repoOrigin: actualOrigin })
+    const activeId = activeRes.activeIntentId || activeRes.activeIntent?.id || ''
+
+    if (!activeId) {
+      return {
+        success: false,
+        intentId: input.intentId,
+        previousStatus: 'unknown',
+        newStatus: input.status,
+        commitSha: input.commitSha,
+        message: `No active intent found. Expected intent ${input.intentId.substring(0, 8)} but nothing is active.`
+      }
+    }
+
+    if (activeId !== input.intentId) {
+      const activeTitle = activeRes.activeIntent?.title || 'unknown'
+      return {
+        success: false,
+        intentId: input.intentId,
+        previousStatus: 'unknown',
+        newStatus: input.status,
+        commitSha: input.commitSha,
+        message: `Intent mismatch: expected ${input.intentId.substring(0, 8)} but active intent is "${activeTitle}" (${activeId.substring(0, 8)}). Another session may have changed the active intent.`
+      }
+    }
+  }
 
   const res = await request('intent', 'complete', {
     repoOrigin: actualOrigin,
