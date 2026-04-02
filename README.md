@@ -24,28 +24,12 @@ This MCP server enables AI coding assistants to understand what you're working o
 - **Decision recording**: Track architectural decisions and trade-offs with constraint validation
 - **Code block assignment**: Associate code changes with intents for better commit history
 
-## Usage
-
-The MCP server works together with Kawa Code, AI code generators such as Cursor, Claude Code,
-and the Kawa Code extensions.
-
-## Key Features
-
-- **Context Persistence**: Never lose track of what you were working on across AI sessions
-- **Smart Context Retrieval**: Relevance-based context loading - only fetch what's needed for the current task
-- **Zero-Knowledge Encryption**: Code blocks encrypted client-side before cloud sync, API cannot decrypt
-- **Team Conflict Detection**: Know when teammates are working on the same files/lines
-- **Decision Tracking**: Record architectural decisions with constraint validation and conflict detection
-- **Commit Integration**: Link all code changes to intent context for better git history
-- **Cross-Platform**: Works with Claude Code and Cursor AI via MCP protocol
-
 ## Prerequisites
 
 ### Required
 
 - **Node.js >= 18.0.0** — runtime for the MCP server
-- **[Kawa Code](https://codeawareness.com/product) desktop app running** — kawa.mcp is a thin MCP-to-IPC adapter; all git operations, storage, and API communication happen in Kawa Code
-- **Active Kawa Code account** — for cloud sync and team features
+- **[Kawa Code](https://kawacode.ai) desktop app running** — kawa.mcp is a thin MCP-to-IPC adapter; all git operations, storage, and API communication happen in Kawa Code
 
 ### Optional (for history inference)
 
@@ -71,24 +55,29 @@ npm run build
 2. **Configure MCP**: Add kawa.mcp to your AI assistant's MCP configuration (see Configuration section)
 3. **Restart AI**: Restart Claude Code or Cursor to load the MCP server
 4. **Test connection**: The server will try to connect to Kawa Code on startup
-5. **Start coding**: Use `check_active_intent` to begin tracking your work
+5. **Start coding**: You'll starting seeing `check_active_intent` at the start of your work with Claude Code
 
 ## Setting Up CLAUDE.md
 
-For Claude Code to use the MCP tools effectively, your project needs a `CLAUDE.md` file that tells Claude *when* to call the tools and provides your repository coordinates.
+#### Quick prompt to tell Claude Code to setup everything:
 
-Copy the example template into your project root and fill in the placeholders:
+ ``` bash
+ Please add the kawa.mcp to this project, and merge the instructions from ../kawa.mcp/CLAUDE.md.example into this project's claude.md, at the top, while making the necessary parameter replacements inside.
+ ```
+ 
+ After this, you can start working using your usual workflow. Kawa Code will automatically start improving your LLM's code generation quality.
+ To benefit from Kawa Code's intent-driven development immediately, I recommend you tell Claude Code to infer code decisions from your git history:
+ 
+ ```
+ Please run the infer history tool on tier 5, with a maximum 3000 commit history.
+ ```
+ 
+This can take a while, depending on how many commits you asked it to analyze. You'll see a progress bar in Kawa Code application.
+Once this is done, you can open the project in Kawa Code (or you can use one of Kawa Code extensions for Visual Studio Code, emacs, or vim) to see the intents at every step in the code evolution.
+Kawa Code will now select the relevant intents and micro-decisions made to speed up code generation, issue troubleshooting, bug fixing etc.
+This relevant context will also help generating a more correct solution to your prompt request.
 
-```bash
-cp /path/to/kawa.mcp/CLAUDE.md.example /path/to/your-project/CLAUDE.md
-```
-
-Or just merge the example with your own content.
-See [`CLAUDE.md.example`](./CLAUDE.md.example) for the full template with optional sections for monorepos, code style, and architecture.
-
-## Configuration
-
-### Claude Code
+#### Alternatively, you can do things manually:
 
 Create a `.mcp.json` file in your project root (recommended for teams — commit it to git):
 
@@ -110,7 +99,7 @@ Or add it at user level (available across all your projects):
 claude mcp add --transport stdio kawa-intents --scope user -- node /absolute/path/to/kawa.mcp/build/index.js
 ```
 
-### Cursor AI
+#### Cursor AI setup
 
 Add to your Cursor MCP configuration (`~/.cursor/mcp.json`):
 
@@ -126,6 +115,21 @@ Add to your Cursor MCP configuration (`~/.cursor/mcp.json`):
 ```
 
 **Important:** Use absolute paths, not relative paths or `~` shortcuts.
+
+## Usage
+
+The MCP server works together with Kawa Code, AI code generators such as Cursor, Claude Code,
+and the Kawa Code extensions.
+
+## Key Features
+
+- **Context Persistence**: Never lose track of what you were working on across AI sessions
+- **Smart Context Retrieval**: Relevance-based context loading - only fetch what's needed for the current task
+- **Zero-Knowledge Encryption**: Code blocks encrypted client-side before cloud sync, API cannot decrypt
+- **Team Conflict Detection**: Know when teammates are working on the same files/lines
+- **Decision Tracking**: Record architectural decisions with constraint validation and conflict detection
+- **Commit Integration**: Link all code changes to intent context for better git history
+- **Cross-Platform**: Works with Claude Code and Cursor AI via MCP protocol
 
 ## Available Tools
 
