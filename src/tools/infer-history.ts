@@ -9,7 +9,7 @@ export const inferHistorySchema = z.object({
   model: z.string().optional().default('claude-sonnet-4-20250514').describe('Anthropic model to use (default: claude-sonnet-4-20250514)'),
   maxStories: z.number().optional().default(0).describe('Maximum stories to analyze in Pass 2 (0 = unlimited)'),
   allowCommitSplitting: z.boolean().optional().default(false).describe('Allow splitting a single commit into multiple stories when it contains unrelated changes (recommended for repos with messy commit history)'),
-  estimateOnly: z.boolean().optional().default(false).describe('If true, only estimate token cost without running the pipeline'),
+  estimateOnly: z.boolean().optional().default(true).describe('If true (default), only estimate token cost without running the pipeline. Set to false to run the full pipeline.'),
 })
 
 export type InferHistoryInput = z.infer<typeof inferHistorySchema>
@@ -26,6 +26,7 @@ export interface InferHistoryResponse {
     est_stories: number
     cost_usd: number
   }
+  gh_available?: boolean
   commit_count?: number
   message: string
 }
@@ -40,10 +41,15 @@ export async function inferHistory(input: InferHistoryInput): Promise<InferHisto
       model: input.model,
     })
 
+    const ghWarning = (input.tier >= 2 && !res.gh_available)
+      ? '\n⚠ gh CLI not found or not authenticated. Tiers 2 (PR descriptions) and 4 (issue discussions) will be skipped. For best results, run `gh auth login` first.'
+      : ''
+
     return {
       estimate: res.estimate,
+      gh_available: res.gh_available,
       commit_count: res.commit_count,
-      message: `Estimated cost: $${res.estimate?.cost_usd ?? '?'} for ~${res.estimate?.est_stories ?? '?'} stories from ${res.commit_count ?? '?'} commits`
+      message: `Estimated cost: $${res.estimate?.cost_usd ?? '?'} for ~${res.estimate?.est_stories ?? '?'} stories from ${res.commit_count ?? '?'} commits${ghWarning}`
     }
   }
 
