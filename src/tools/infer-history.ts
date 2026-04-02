@@ -4,7 +4,7 @@ import { request } from '../services/muninn-ipc.js'
 export const inferHistorySchema = z.object({
   repoPath: z.string().describe('Local path to the repository root'),
   commits: z.number().optional().default(50).describe('Number of recent commits to analyze (default: 50)'),
-  tier: z.number().optional().default(5).describe('Enrichment tier 1-5: 1=git log, 2=+PR descriptions, 3=+revert diffs, 4=+issue discussions, 5=+full diffs (default: 5)'),
+  tier: z.number().optional().default(5).describe('Enrichment tier 1-5: 1=git log, 2=+PR/MR descriptions (needs gh/glab), 3=+revert diffs, 4=+issue discussions (needs gh/glab), 5=+full diffs (default: 5)'),
   contextIssues: z.boolean().optional().default(false).describe('Include context issues from commit date range (Tier 4 only)'),
   model: z.string().optional().default('claude-sonnet-4-20250514').describe('Anthropic model to use (default: claude-sonnet-4-20250514)'),
   maxStories: z.number().optional().default(0).describe('Maximum stories to analyze in Pass 2 (0 = unlimited)'),
@@ -26,7 +26,8 @@ export interface InferHistoryResponse {
     est_stories: number
     cost_usd: number
   }
-  gh_available?: boolean
+  forge?: string
+  forge_cli_available?: boolean
   commit_count?: number
   message: string
 }
@@ -41,15 +42,24 @@ export async function inferHistory(input: InferHistoryInput): Promise<InferHisto
       model: input.model,
     })
 
-    const ghWarning = (input.tier >= 2 && !res.gh_available)
-      ? '\n⚠ gh CLI not found or not authenticated. Tiers 2 (PR descriptions) and 4 (issue discussions) will be skipped. For best results, run `gh auth login` first.'
-      : ''
+    let forgeWarning = ''
+    if (input.tier >= 2 && !res.forge_cli_available) {
+      const forge = res.forge ?? 'Unknown'
+      if (forge === 'Unknown') {
+        forgeWarning = '\n⚠ Unrecognized git hosting platform. Tiers 2 (PR/MR descriptions) and 4 (issue discussions) will be skipped.'
+      } else if (forge === 'GitHub') {
+        forgeWarning = '\n⚠ GitHub CLI (gh) not found or not authenticated. Tiers 2 and 4 will be skipped. Run `gh auth login` to include PR and issue context.'
+      } else if (forge === 'GitLab') {
+        forgeWarning = '\n⚠ GitLab CLI (glab) not found or not authenticated. Tiers 2 and 4 will be skipped. Run `glab auth login` to include MR and issue context.'
+      }
+    }
 
     return {
       estimate: res.estimate,
-      gh_available: res.gh_available,
+      forge: res.forge,
+      forge_cli_available: res.forge_cli_available,
       commit_count: res.commit_count,
-      message: `Estimated cost: $${res.estimate?.cost_usd ?? '?'} for ~${res.estimate?.est_stories ?? '?'} stories from ${res.commit_count ?? '?'} commits${ghWarning}`
+      message: `Estimated cost: $${res.estimate?.cost_usd ?? '?'} for ~${res.estimate?.est_stories ?? '?'} stories from ${res.commit_count ?? '?'} commits${forgeWarning}`
     }
   }
 
@@ -86,10 +96,12 @@ The pipeline supports checkpointing — if interrupted, re-running resumes from 
 
 Enrichment tiers control how much context is gathered:
 - Tier 1: Git log only (fastest, cheapest)
-- Tier 2: + PR descriptions and review comments
+- Tier 2: + PR/MR descriptions and review comments (requires forge CLI: gh or glab)
 - Tier 3: + Diffs for revert commits
-- Tier 4: + GitHub issue discussions with decision-level content (recommended)
-- Tier 5: + Full diffs and code annotation extraction (most expensive)`,
+- Tier 4: + Issue discussions with decision-level content (requires forge CLI)
+- Tier 5: + Full diffs and code annotation extraction (most expensive)
+
+Supports GitHub (gh CLI) and GitLab (glab CLI). Forge is auto-detected from the remote origin.`,
   inputSchema: inferHistorySchema,
   handler: inferHistory
 }
