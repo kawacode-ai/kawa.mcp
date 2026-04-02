@@ -19,6 +19,7 @@ export function resolveOrigin(repoOrigin: string | undefined, repoPath?: string)
         cwd: repoPath,
         encoding: 'utf-8',
         timeout: 5000,
+        windowsHide: true,
       }).trim()
       if (origin) return origin
     } catch {
