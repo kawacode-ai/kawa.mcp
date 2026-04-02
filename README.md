@@ -38,65 +38,24 @@ This MCP server enables AI coding assistants to understand what you're working o
 
 ## Installation
 
+Add the MCP server to Claude Code (available across all your projects):
+
 ```bash
-# Clone the repository (if not already cloned)
-cd /path/to/kawa.mcp
-
-# Install dependencies
-npm install
-
-# Build the TypeScript source
-npm run build
+claude mcp add kawa-intents --scope user -- npx -y @kawacode/mcp
 ```
 
-## Quick Start
-
-1. **Start Kawa Code**: Launch the Kawa Code desktop app and log in
-2. **Configure MCP**: Add kawa.mcp to your AI assistant's MCP configuration (see Configuration section)
-3. **Restart AI**: Restart Claude Code or Cursor to load the MCP server
-4. **Test connection**: The server will try to connect to Kawa Code on startup
-5. **Start coding**: You'll starting seeing `check_active_intent` at the start of your work with Claude Code
-
-## Setting Up CLAUDE.md
-
-#### Quick prompt to tell Claude Code to setup everything:
-
- ``` bash
- Please add the kawa.mcp to this project, and merge the instructions from ../kawa.mcp/CLAUDE.md.example into this project's claude.md, at the top, while making the necessary parameter replacements inside.
- ```
- 
- After this, you can start working using your usual workflow. Kawa Code will automatically start improving your LLM's code generation quality.
- To benefit from Kawa Code's intent-driven development immediately, I recommend you tell Claude Code to infer code decisions from your git history:
- 
- ```
- Please run the infer history tool on tier 5, with a maximum 3000 commit history.
- ```
- 
-This can take a while, depending on how many commits you asked it to analyze. You'll see a progress bar in Kawa Code application.
-Once this is done, you can open the project in Kawa Code (or you can use one of Kawa Code extensions for Visual Studio Code, emacs, or vim) to see the intents at every step in the code evolution.
-Kawa Code will now select the relevant intents and micro-decisions made to speed up code generation, issue troubleshooting, bug fixing etc.
-This relevant context will also help generating a more correct solution to your prompt request.
-
-#### Alternatively, you can do things manually:
-
-Create a `.mcp.json` file in your project root (recommended for teams — commit it to git):
+Or for a single project, create a `.mcp.json` file in your project root (recommended for teams — commit it to git):
 
 ```json
 {
   "mcpServers": {
     "kawa-intents": {
       "type": "stdio",
-      "command": "node",
-      "args": ["/absolute/path/to/kawa.mcp/build/index.js"]
+      "command": "npx",
+      "args": ["-y", "@kawacode/mcp"]
     }
   }
 }
-```
-
-Or add it at user level (available across all your projects):
-
-```bash
-claude mcp add --transport stdio kawa-intents --scope user -- node /absolute/path/to/kawa.mcp/build/index.js
 ```
 
 #### Cursor AI setup
@@ -107,14 +66,41 @@ Add to your Cursor MCP configuration (`~/.cursor/mcp.json`):
 {
   "mcpServers": {
     "kawa-intents": {
-      "command": "node",
-      "args": ["/absolute/path/to/kawa.mcp/build/index.js"]
+      "command": "npx",
+      "args": ["-y", "@kawacode/mcp"]
     }
   }
 }
 ```
 
-**Important:** Use absolute paths, not relative paths or `~` shortcuts.
+## Quick Start
+
+1. **Start Kawa Code**: Launch the Kawa Code desktop app and log in
+2. **Install MCP**: Run `claude mcp add kawa-intents --scope user -- npx -y @kawacode/mcp`
+3. **Restart AI**: Restart Claude Code or Cursor to load the MCP server
+4. **Test connection**: The server will try to connect to Kawa Code on startup
+5. **Start coding**: You'll start seeing `check_active_intent` at the start of your work with Claude Code
+
+## Setting Up CLAUDE.md
+
+#### Quick prompt to tell Claude Code to set up everything:
+
+```
+Read the CLAUDE.md.example file from the @kawacode/mcp package and create a CLAUDE.md in this project's root. Fill in the repoOrigin and repoPath with the actual values from this repository's git config. Fill in the Project Overview with a brief description of this project.
+```
+
+After this, you can start working using your usual workflow. Kawa Code will automatically start improving your LLM's code generation quality.
+
+To benefit from Kawa Code's intent-driven development immediately, tell Claude Code to infer code decisions from your git history:
+
+```
+Please run the infer history tool on tier 5, with a maximum 3000 commit history.
+```
+
+This can take a while, depending on how many commits you asked it to analyze. You'll see a progress bar in Kawa Code application.
+Once this is done, you can open the project in Kawa Code (or you can use one of Kawa Code extensions for Visual Studio Code, emacs, or vim) to see the intents at every step in the code evolution.
+Kawa Code will now select the relevant intents and micro-decisions made to speed up code generation, issue troubleshooting, bug fixing etc.
+This relevant context will also help generating a more correct solution to your prompt request.
 
 ## Usage
 
