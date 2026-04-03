@@ -33,6 +33,7 @@ export interface DecisionPoint {
 
 export interface GetSessionDecisionsResponse {
   intentId: string
+  intentIds: string[]
   decisions: DecisionPoint[]
   count: number
 }
@@ -60,6 +61,7 @@ export async function getSessionDecisions(input: GetSessionDecisionsInput): Prom
 
   return {
     intentId: input.intentId,
+    intentIds: [input.intentId],
     decisions,
     count: decisions.length
   }

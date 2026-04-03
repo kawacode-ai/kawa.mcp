@@ -22,7 +22,8 @@ const teamDecisionSchema = z.object({
     constraintsChecked: z.array(z.string()).optional(),
     constraintViolations: z.array(constraintViolationSchema).optional()
   }),
-  intentId: z.string().describe('Intent ID this decision belongs to'),
+  intentId: z.string().optional().describe('Legacy: single intent ID (use intentIds instead)'),
+  intentIds: z.array(z.string()).optional().describe('Intent IDs this decision belongs to'),
   authorId: z.string().describe('Author user ID'),
   authorName: z.string().describe('Author display name')
 })

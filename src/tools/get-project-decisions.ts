@@ -17,6 +17,7 @@ export interface ConstraintViolation {
 
 export interface ProjectDecision {
   intentId: string
+  intentIds: string[]
   id: string
   timestamp: string
   type: 'fork' | 'abandoned' | 'discovery' | 'constraint' | 'tradeoff' | 'dependency'
@@ -42,7 +43,8 @@ export async function getProjectDecisions(input: GetProjectDecisionsInput): Prom
   })
 
   const decisions: ProjectDecision[] = (res.decisions || []).map((d: any) => ({
-    intentId: d.intent_id || d.intentId || '',
+    intentId: d.intent_id || d.intentId || d.intent_ids?.[0] || d.intentIds?.[0] || '',
+    intentIds: d.intent_ids || d.intentIds || (d.intent_id || d.intentId ? [d.intent_id || d.intentId] : []),
     id: d.decision_id || d.decisionId || d._id || d.id || '',
     timestamp: d.timestamp || d.created_at || d.createdAt || '',
     type: d.decision_type || d.decisionType || d.type,
@@ -77,7 +79,7 @@ Returns:
 - count: Total number of decisions
 
 Each decision includes:
-- intentId: The intent this decision belongs to
+- intentIds: The intents this decision belongs to (array — a decision can span multiple intents)
 - type: fork, abandoned, discovery, constraint, tradeoff, or dependency
 - summary: Brief description of the decision
 - rationale: Why this decision was made

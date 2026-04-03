@@ -26,6 +26,7 @@ export interface ScoredIntent {
 export interface ScoredDecision {
   id: string
   intentId: string
+  intentIds: string[]
   type: string
   summary: string
   rationale: string
@@ -94,7 +95,8 @@ export async function getRelevantContext(input: GetRelevantContextInput): Promis
 
     relevantDecisions: (res.decisions || []).map((d: any) => ({
       id: d.decisionId || d.decision_id || '',
-      intentId: d.intentId || d.intent_id || '',
+      intentId: d.intentId || d.intent_id || d.intentIds?.[0] || d.intent_ids?.[0] || '',
+      intentIds: d.intentIds || d.intent_ids || (d.intentId || d.intent_id ? [d.intentId || d.intent_id] : []),
       type: d.decisionType || d.decision_type || d.type || '',
       summary: d.summary || '',
       rationale: d.rationale || '',
