@@ -4,7 +4,7 @@ import { request } from '../services/muninn-ipc.js'
 export const inferHistorySchema = z.object({
   repoPath: z.string().describe('Local path to the repository root'),
   commits: z.number().optional().default(50).describe('Number of recent commits to analyze (default: 50)'),
-  tier: z.number().optional().default(5).describe('Enrichment tier 1-5: 1=git log, 2=+PR/MR descriptions (needs gh/glab), 3=+revert diffs, 4=+issue discussions (needs gh/glab), 5=+full diffs (default: 5)'),
+  tier: z.number().optional().default(5).describe('Enrichment tier 1-5 (cumulative — each includes all lower tiers). 1=git log, 2=+PR/MR descriptions, 3=+revert diffs, 4=+issue discussions, 5=+full diffs+annotations. Default: 5. Tiers 2/4 auto-skip if gh/glab CLI unavailable.'),
   contextIssues: z.boolean().optional().default(false).describe('Include context issues from commit date range (Tier 4 only)'),
   model: z.string().optional().default('claude-sonnet-4-20250514').describe('Anthropic model to use (default: claude-sonnet-4-20250514)'),
   maxStories: z.number().optional().default(0).describe('Maximum stories to analyze in Pass 2 (0 = unlimited)'),
@@ -94,12 +94,14 @@ Use \`estimateOnly: true\` first to preview token cost before running the full p
 
 The pipeline supports checkpointing — if interrupted, re-running resumes from where it left off.
 
-Enrichment tiers control how much context is gathered:
-- Tier 1: Git log only (fastest, cheapest)
-- Tier 2: + PR/MR descriptions and review comments (requires forge CLI: gh or glab)
-- Tier 3: + Diffs for revert commits
-- Tier 4: + Issue discussions with decision-level content (requires forge CLI)
-- Tier 5: + Full diffs and code annotation extraction (most expensive)
+Enrichment tiers are **cumulative** — each tier includes all data from lower tiers:
+- Tier 1: Git log with file stats (always available)
+- Tier 2: Tier 1 + PR/MR descriptions and review comments (requires gh or glab CLI)
+- Tier 3: Tier 2 + diffs for revert commits
+- Tier 4: Tier 3 + issue discussions with decision-level content (requires gh or glab CLI)
+- Tier 5: Tier 4 + full diffs and code annotation extraction (default, most thorough)
+
+Tiers 2 and 4 are automatically skipped if the forge CLI is not available — no data is lost from other tiers.
 
 Supports GitHub (gh CLI) and GitLab (glab CLI). Forge is auto-detected from the remote origin.`,
   inputSchema: inferHistorySchema,

@@ -94,8 +94,10 @@ After this, you can start working using your usual workflow. Kawa Code will auto
 To benefit from Kawa Code's intent-driven development immediately, tell Claude Code to infer code decisions from your git history:
 
 ```
-Please run the infer history tool on tier 5, with a maximum 3000 commit history.
+Please run infer_history with max 3000 commits.
 ```
+
+Tier 5 (the default) extracts the most context. Tiers are cumulative — each includes all data from lower tiers. Tiers 2 and 4 add PR/issue context from GitHub/GitLab and require the `gh` or `glab` CLI; they're automatically skipped if unavailable.
 
 This can take a while, depending on how many commits you asked it to analyze. You'll see a progress bar in Kawa Code application.
 Once this is done, you can open the project in Kawa Code (or you can use one of Kawa Code extensions for Visual Studio Code, emacs, or vim) to see the intents at every step in the code evolution.
