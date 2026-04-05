@@ -47,7 +47,7 @@ export async function getIntentsForLines(input: GetIntentsForLinesInput): Promis
   })
 
   const overlappingIntents: LineRangeIntent[] = (res.intents || []).map((intent: any) => ({
-    intentId: intent.intent_id || intent.intentId || intent.id || '',
+    intentId: intent.cloud_id || intent.cloudId || intent.intent_id || intent.intentId || intent.id || '',
     title: intent.title || 'Unknown Intent',
     author: intent.author || intent.author_name || intent.authorName,
     status: intent.status || 'active',
