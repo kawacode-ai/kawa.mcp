@@ -20,6 +20,7 @@ import {
   getRelevantContext,
   checkActiveIntent,
   createAndActivateIntent,
+  activateIntent,
   getIntentsForFile,
   getIntentsForLines,
   assignBlocksToIntent,
@@ -99,6 +100,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break
       case 'create_and_activate_intent':
         result = await createAndActivateIntent(args as any)
+        break
+      case 'activate_intent':
+        result = await activateIntent(args as any)
         break
       case 'get_intents_for_file':
         result = await getIntentsForFile(args as any)

@@ -1,6 +1,7 @@
 import { checkActiveIntentTool, checkActiveIntent, checkActiveIntentSchema } from './check-active-intent.js'
 import { getRelevantContextTool, getRelevantContext, getRelevantContextSchema } from './get-relevant-context.js'
 import { createAndActivateIntentTool, createAndActivateIntent, createAndActivateIntentSchema } from './create-intent.js'
+import { activateIntentTool, activateIntent, activateIntentSchema } from './activate-intent.js'
 import { getIntentsForFileTool, getIntentsForFile, getIntentsForFileSchema } from './get-intents-for-file.js'
 import { getIntentsForLinesTool, getIntentsForLines, getIntentsForLinesSchema } from './get-intents-for-lines.js'
 import { assignBlocksToIntentTool, assignBlocksToIntent, assignBlocksSchema } from './assign-blocks.js'
@@ -29,6 +30,9 @@ export {
   createAndActivateIntentTool,
   createAndActivateIntent,
   createAndActivateIntentSchema,
+  activateIntentTool,
+  activateIntent,
+  activateIntentSchema,
   getIntentsForFileTool,
   getIntentsForFile,
   getIntentsForFileSchema,
@@ -83,6 +87,7 @@ export const allTools = [
   // Intent tools
   checkActiveIntentTool,
   createAndActivateIntentTool,
+  activateIntentTool,
   getIntentsForFileTool,
   getIntentsForLinesTool,
   assignBlocksToIntentTool,
