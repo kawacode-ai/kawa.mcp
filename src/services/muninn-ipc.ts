@@ -18,6 +18,9 @@ import * as crypto from 'crypto'
 
 const EXTENSION_ID = 'mcp'
 const EXTENSION_DOMAINS = ['intent', 'intent-block', 'decision', 'claude-code', 'code', 'inference']
+
+/** Stable session ID for this MCP process. Identifies this agent in intent attribution. */
+export const SESSION_ID = `mcp-${crypto.randomBytes(4).toString('hex')}`
 const REQUEST_TIMEOUT_MS = 30_000
 const HANDSHAKE_TIMEOUT_MS = 10_000
 
@@ -218,7 +221,22 @@ function connectClientPipe(
   })
 }
 
-/** Route an inbound response message to its waiting pendingRequest entry. */
+/** Route an inbound response message to its waiting pendingRequest entry.
+ *
+ * Failure propagation has two layers:
+ *   1. Envelope-level: `msg.err` is set when the IPC dispatch itself failed
+ *      (unknown domain, malformed message, etc.). Reject directly.
+ *   2. Application-level: Muninn handlers wrap their own failures INSIDE
+ *      `msg.data` as `{ success: false, error: "..." }`. Without this check,
+ *      tools silently received the failure object as a successful resolve and
+ *      had to remember to inspect it themselves — which several built tools
+ *      did not, leading to fake `success: true, intentId: ""` responses.
+ *
+ * Strict equality (`=== false`) is intentional. Async-start responses such as
+ * `{ started: true, message: "..." }` (inference run/evolve) and estimate
+ * responses (`{ estimate: {...} }`) carry no `success` field at all and must
+ * pass through unchanged.
+ */
 function routeResponse(msg: any): void {
   const msgId = msg._msgId
   if (msgId && pendingRequests.has(msgId)) {
@@ -227,9 +245,17 @@ function routeResponse(msg: any): void {
     clearTimeout(pending.timer)
     if (msg.err) {
       pending.reject(new Error(msg.err))
-    } else {
-      pending.resolve(msg.data || {})
+      return
     }
+    const data = msg.data || {}
+    if (data.success === false) {
+      const errorMsg = typeof data.error === 'string' && data.error.length > 0
+        ? data.error
+        : 'Muninn handler returned success: false with no error message'
+      pending.reject(new Error(errorMsg))
+      return
+    }
+    pending.resolve(data)
   }
 }
 
@@ -261,7 +287,7 @@ export async function request(domain: string, action: string, data: any = {}): P
       domain,
       action,
       caw: cawId,
-      data,
+      data: { ...data, _agentId: SESSION_ID },
       _msgId: msgId,
     })
 
