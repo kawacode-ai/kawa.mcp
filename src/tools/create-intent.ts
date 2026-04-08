@@ -16,14 +16,16 @@ export type CreateIntentInput = z.infer<typeof createAndActivateIntentSchema>
 export interface CreateIntentResponse {
   success: boolean
   intentId: string
-  localId: string
+  action: 'created' | 'reactivated'
   message: string
 }
 
 export async function createAndActivateIntent(input: CreateIntentInput): Promise<CreateIntentResponse> {
   const actualOrigin = resolveOrigin(input.repoOrigin, input.repoPath)
 
-  // Step 1: Create the intent
+  // Step 1: Create (or find-and-reactivate) the intent.
+  // The Muninn handler proxies to API POST /intents/find-or-create which
+  // dedups by embedding similarity (≥ 0.85).
   const createRes = await request('intent', 'create', {
     repoOrigin: actualOrigin,
     title: input.title,
@@ -33,7 +35,17 @@ export async function createAndActivateIntent(input: CreateIntentInput): Promise
     scope: { type: 'repo', paths: [] },
   })
 
+  // Propagate Muninn-side errors (e.g. not signed in, API unreachable) to the AI
+  // so it can tell the user how to recover instead of silently proceeding.
+  if (createRes.success === false) {
+    throw new Error(createRes.error || 'Intent creation failed')
+  }
+
   const intentId = createRes.intent?.id || createRes.intentId || ''
+  if (!intentId) {
+    throw new Error('Intent creation succeeded but no intent ID was returned')
+  }
+  const action: 'created' | 'reactivated' = createRes.action === 'reactivated' ? 'reactivated' : 'created'
 
   // Step 2: Set it as active
   await request('intent', 'set-active', {
@@ -41,11 +53,15 @@ export async function createAndActivateIntent(input: CreateIntentInput): Promise
     intentId,
   })
 
+  const message = action === 'reactivated'
+    ? `Reactivated existing similar intent: "${input.title}" — resuming previous work instead of creating a duplicate.`
+    : `Created and activated intent: "${input.title}"`
+
   return {
     success: true,
     intentId,
-    localId: intentId,
-    message: `Created and activated intent: "${input.title}"`
+    action,
+    message,
   }
 }
 

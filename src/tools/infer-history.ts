@@ -3,7 +3,7 @@ import { request } from '../services/muninn-ipc.js'
 
 export const inferHistorySchema = z.object({
   repoPath: z.string().describe('Local path to the repository root'),
-  commits: z.number().optional().default(50).describe('Number of recent commits to analyze (default: 50)'),
+  commits: z.number().optional().describe('Number of recent commits to analyze. If omitted, the server resumes from the last commit infer_history processed for this repo (or falls back to 50 on first run).'),
   contextIssues: z.boolean().optional().default(false).describe('Include context issues from commit date range (requires gh/glab CLI)'),
   model: z.string().optional().default('claude-sonnet-4-20250514').describe('Anthropic model to use (default: claude-sonnet-4-20250514)'),
   maxStories: z.number().optional().default(0).describe('Maximum stories to analyze in Pass 2 (0 = unlimited)'),
@@ -32,13 +32,17 @@ export interface InferHistoryResponse {
 }
 
 export async function inferHistory(input: InferHistoryInput): Promise<InferHistoryResponse> {
+  // Only forward `commits` when the caller explicitly provided one, so the
+  // server can fall back to last_inferred_sha tracking otherwise.
+  const inferencePayload: Record<string, any> = {
+    repoPath: input.repoPath,
+    contextIssues: input.contextIssues,
+    model: input.model,
+  }
+  if (input.commits !== undefined) inferencePayload.commits = input.commits
+
   if (input.estimateOnly) {
-    const res = await request('inference', 'estimate', {
-      repoPath: input.repoPath,
-      commits: input.commits,
-      contextIssues: input.contextIssues,
-      model: input.model,
-    })
+    const res = await request('inference', 'estimate', inferencePayload)
 
     let forgeWarning = ''
     if (!res.forge_cli_available) {
@@ -61,14 +65,16 @@ export async function inferHistory(input: InferHistoryInput): Promise<InferHisto
     }
   }
 
-  const res = await request('inference', 'run', {
+  const runPayload: Record<string, any> = {
     repoPath: input.repoPath,
-    commits: input.commits,
     contextIssues: input.contextIssues,
     model: input.model,
     maxStories: input.maxStories,
     allowCommitSplitting: input.allowCommitSplitting,
-  })
+  }
+  if (input.commits !== undefined) runPayload.commits = input.commits
+
+  const res = await request('inference', 'run', runPayload)
 
   return {
     started: res.started,

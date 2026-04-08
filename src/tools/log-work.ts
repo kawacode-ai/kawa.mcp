@@ -37,7 +37,7 @@ export async function logWork(input: LogWorkInput): Promise<LogWorkResponse> {
 
 export const logWorkTool = {
   name: 'log_work',
-  description: 'Lightweight single-call tool to log completed work without the full intent lifecycle. Use for quick fixes, doc updates, config changes — any task where create/assign/complete is overhead. Creates a completed intent record in one call. Does NOT set an active intent.',
+  description: 'DEPRECATED — trivial changes (typos, one-line fixes, obvious bugs, doc updates, config changes) should skip the intent workflow entirely: just make the change and commit, no intent needed. Do not call this tool. Kept available for backwards compatibility only and will be removed in a future release.',
   inputSchema: logWorkSchema,
   handler: logWork
 }
