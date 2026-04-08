@@ -159,8 +159,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       ]
     }
   } catch (error) {
+    // Surface IPC / handler failures as structured tool output instead of an
+    // McpError stack trace. The AI sees the friendly error message and can
+    // decide how to recover (retry, fall back, ask user, etc.).
+    // Errors that are not IPC-related (e.g. unknown tool name) are still
+    // raised as McpError below.
+    if (error instanceof McpError) throw error
     const message = error instanceof Error ? error.message : 'Tool execution failed'
-    throw new McpError(ErrorCode.InternalError, message)
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            success: false,
+            error: message,
+            tool: name,
+          }, null, 2),
+        },
+      ],
+      isError: true,
+    }
   }
 })
 
