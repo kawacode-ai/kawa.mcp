@@ -23,7 +23,6 @@ import {
   activateIntent,
   getIntentsForFile,
   getIntentsForLines,
-  assignBlocksToIntent,
   listTeamIntents,
   getIntentChanges,
   completeIntent,
@@ -109,9 +108,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break
       case 'get_intents_for_lines':
         result = await getIntentsForLines(args as any)
-        break
-      case 'assign_blocks_to_intent':
-        result = await assignBlocksToIntent(args as any)
         break
       case 'list_team_intents':
         result = await listTeamIntents(args as any)

@@ -44,7 +44,7 @@ export async function listTeamIntents(input: ListTeamIntentsInput): Promise<List
   })
 
   let intents: TeamIntent[] = (res.intents || []).map((intent: any) => ({
-    id: intent.cloud_id || intent.cloudId || intent._id || intent.id || '',
+    id: intent.id || '',
     title: intent.title || '',
     description: intent.description || '',
     author: intent.author || intent.author_name || intent.authorName || 'Unknown',

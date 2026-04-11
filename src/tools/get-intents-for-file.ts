@@ -45,7 +45,7 @@ export async function getIntentsForFile(input: GetIntentsForFileInput): Promise<
   })
 
   const intents: FileIntentInfo[] = (res.intents || []).map((intent: any) => ({
-    intentId: intent.cloud_id || intent.cloudId || intent.intent_id || intent.intentId || intent.id || '',
+    intentId: intent.intentId || intent.id || '',
     title: intent.title || 'Unknown Intent',
     author: intent.author || intent.author_name || intent.authorName,
     status: intent.status || 'active',

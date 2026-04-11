@@ -15,7 +15,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 2. **Get relevant context**: Call `get_relevant_context` with a description of the task to find past decisions and related intents that may inform your approach
 3. **Then explore code**: Now read files, search the codebase, and analyze the problem
 
-For trivial one-line fixes (typos, obvious bugs), skip the above and use `log_work` after completing the change. For everything else — especially bug fixes from issues, multi-file changes, or unfamiliar code — always start with steps 1-2.
+For trivial one-line fixes (typos, obvious bugs), skip the intent workflow entirely — just make the change and commit. No intent needed. For everything else — especially bug fixes from issues, multi-file changes, or unfamiliar code — always start with steps 1-2.
+
+**Exploration vs. code generation**: Not every prompt requires an intent. When the user is exploring, asking questions, investigating behavior, or researching an area of the codebase — call `get_relevant_context` to enrich your answers with past decisions and related intents, but do NOT create an intent. Only create an intent when the conversation transitions to actual code changes. Signals that a prompt is exploration:
+- Questions ("how does X work?", "what would happen if…?", "why was this done this way?")
+- Investigation ("look at the auth flow", "find where X is called", "check if Y is tested")
+- Architecture/design discussion without a concrete action item
+
+Signals that an intent should be created:
+- Explicit change requests ("fix this bug", "add feature X", "refactor Y")
+- The user approves a proposed change and wants it implemented
+- You are about to modify files
+
+**Intent reformulation**: Intents are living documents, not upfront contracts. When an active intent exists and the work reveals that the original title, description, or scope no longer reflects what's actually being done, update the intent implicitly — don't ask the user for permission to reformulate. Use the `intent:update` IPC action (via Kawa Code) to update the title, description, scope, or constraints as understanding evolves. This is expected to happen naturally during hands-on, exploratory work. An intent may be reformulated many times before the user finalizes and commits.
+
+**Handling intent conflicts**: `create_and_activate_intent` runs automatic conflict detection against all existing intents for the repo. If conflicts are found, the tool returns `action: "conflict"` with a list of conflicting intents (severity, overlapping files, semantic opposition). When this happens:
+1. Present the conflicts to the user clearly — show severity, the conflicting intent's title/author, and the nature of the overlap.
+2. Ask the user: "These conflicts were detected. Should I proceed anyway?"
+3. If the user says yes, retry `create_and_activate_intent` with `force: true` to bypass conflict detection. The bypassed conflict IDs are recorded on the intent for audit.
 
 **Recording decisions before commit**: When the user asks to finalize/commit, review the work done in the session and call `record_decision` for each significant decision or lesson *before* creating the commit. Apply a **high bar**: a decision is worth recording only if a future developer (or Claude in a future session) would genuinely benefit from knowing it — i.e., it would change how they approach the same area of code.
 
@@ -34,7 +51,13 @@ Do NOT record:
 - Gotchas with no future recurrence risk (one-off typos, copy-paste errors, trivial config mistakes)
 - Decisions with no meaningful alternatives considered
 
-**Committing pre-existing changes**: When uncommitted changes exist that weren't made under an active intent, infer intents retroactively: read the diffs, group changes by semantic purpose, call `list_team_intents` to find existing intents that accurately match each group, then commit each group under its matched intent (create a new intent if no accurate match found). Present the grouping plan to the user before committing. Use `log_work` for trivial standalone changes.
+**After committing**: Call `complete_intent` with the commit SHA and status `"committed"`. This marks the intent as done and clears the active intent so a new one can be started. Without this step, intents accumulate as "active" forever.
+
+**Code blocks are auto-captured on commit**: When `complete_intent` runs with a commit SHA, Muninn reads the commit diff, extracts line ranges for each modified file, computes an AST-based semantic anchor per range (for robust re-anchoring after future rebases), encrypts the content, and sends the blocks to the API in the same PATCH call that updates the intent status. There is no manual "assign blocks" step — intent blocks are derived from the commit, not specified by the caller. Manual attachment via `assign_blocks_to_intent` has been removed.
+
+Implication: an intent that's completed without a `commitSha` will have an empty `blocks` array on the API. For abandoned intents this is correct (the intent is deleted outright). For committed/pushed/done statuses, always pass the commit SHA so the auto-capture can run.
+
+**Committing pre-existing changes**: When uncommitted changes exist that weren't made under an active intent, infer intents retroactively: read the diffs, group changes by semantic purpose, call `list_team_intents` to find existing intents that accurately match each group, then commit each group under its matched intent (create a new intent if no accurate match found). Present the grouping plan to the user before committing. Trivial standalone changes (typos, formatting) can be committed without an intent.
 
 ## Repository Origin and Path
 

@@ -33,7 +33,7 @@ export async function activateIntent(input: ActivateIntentInput): Promise<Activa
     }
   }
 
-  // Muninn's set-active resolves cloud_id → local UUID automatically
+  // Set the intent as active
   await request('intent', 'set-active', {
     repoOrigin: actualOrigin,
     intentId: input.intentId,

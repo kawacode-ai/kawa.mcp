@@ -5,7 +5,7 @@ import { resolveOrigin } from './resolve-origin.js'
 export const detectIntentConflictsSchema = z.object({
   repoOrigin: z.string().optional().describe('Git remote origin URL. Auto-detected from repoPath via git if not provided.'),
   repoPath: z.string().describe('Local path to the repository root'),
-  intentId: z.string().describe('The active intent ID (cloud_id or local UUID)'),
+  intentId: z.string().describe('The active intent ID'),
   minScore: z.number().optional().describe('Minimum similarity score threshold (default: 0.5)'),
 })
 

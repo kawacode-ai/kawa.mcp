@@ -21,8 +21,6 @@ export interface ActiveIntentResponse {
   hasActiveIntent: boolean
   intent?: {
     id: string
-    localId: string
-    cloudId: string
     title: string
     description: string
     templateType: 'feature' | 'refactor' | 'exploration'
@@ -51,8 +49,6 @@ export async function checkActiveIntent(input: CheckActiveIntentInput): Promise<
     hasActiveIntent: true,
     intent: {
       id: intent.id || res.activeIntentId || '',
-      localId: intent.id || res.activeIntentId || '',
-      cloudId: intent.cloud_id || intent.cloudId || '',
       title: intent.title || '',
       description: intent.description || '',
       templateType: (intent.templateType || 'feature') as 'feature' | 'refactor' | 'exploration',

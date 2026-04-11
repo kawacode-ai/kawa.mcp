@@ -4,7 +4,6 @@ import { createAndActivateIntentTool, createAndActivateIntent, createAndActivate
 import { activateIntentTool, activateIntent, activateIntentSchema } from './activate-intent.js'
 import { getIntentsForFileTool, getIntentsForFile, getIntentsForFileSchema } from './get-intents-for-file.js'
 import { getIntentsForLinesTool, getIntentsForLines, getIntentsForLinesSchema } from './get-intents-for-lines.js'
-import { assignBlocksToIntentTool, assignBlocksToIntent, assignBlocksSchema } from './assign-blocks.js'
 import { listTeamIntentsTool, listTeamIntents, listTeamIntentsSchema } from './list-team-intents.js'
 import { getIntentChangesTool, getIntentChanges, getIntentChangesSchema } from './get-intent-changes.js'
 import { completeIntentTool, completeIntent, completeIntentSchema } from './complete-intent.js'
@@ -39,9 +38,6 @@ export {
   getIntentsForLinesTool,
   getIntentsForLines,
   getIntentsForLinesSchema,
-  assignBlocksToIntentTool,
-  assignBlocksToIntent,
-  assignBlocksSchema,
   listTeamIntentsTool,
   listTeamIntents,
   listTeamIntentsSchema,
@@ -90,7 +86,6 @@ export const allTools = [
   activateIntentTool,
   getIntentsForFileTool,
   getIntentsForLinesTool,
-  assignBlocksToIntentTool,
   listTeamIntentsTool,
   getIntentChangesTool,
   completeIntentTool,
