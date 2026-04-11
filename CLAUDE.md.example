@@ -17,18 +17,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 For trivial one-line fixes (typos, obvious bugs), skip the intent workflow entirely — just make the change and commit. No intent needed. For everything else — especially bug fixes from issues, multi-file changes, or unfamiliar code — always start with steps 1-2.
 
-**Exploration vs. code generation**: Not every prompt requires an intent. When the user is exploring, asking questions, investigating behavior, or researching an area of the codebase — call `get_relevant_context` to enrich your answers with past decisions and related intents, but do NOT create an intent. Only create an intent when the conversation transitions to actual code changes. Signals that a prompt is exploration:
-- Questions ("how does X work?", "what would happen if…?", "why was this done this way?")
-- Investigation ("look at the auth flow", "find where X is called", "check if Y is tested")
-- Architecture/design discussion without a concrete action item
-
-Signals that an intent should be created:
-- Explicit change requests ("fix this bug", "add feature X", "refactor Y")
-- The user approves a proposed change and wants it implemented
-- You are about to modify files
-
-**Intent reformulation**: Intents are living documents, not upfront contracts. When an active intent exists and the work reveals that the original title, description, or scope no longer reflects what's actually being done, update the intent implicitly — don't ask the user for permission to reformulate. Use the `intent:update` IPC action (via Kawa Code) to update the title, description, scope, or constraints as understanding evolves. This is expected to happen naturally during hands-on, exploratory work. An intent may be reformulated many times before the user finalizes and commits.
-
 **Handling intent conflicts**: `create_and_activate_intent` runs automatic conflict detection against all existing intents for the repo. If conflicts are found, the tool returns `action: "conflict"` with a list of conflicting intents (severity, overlapping files, semantic opposition). When this happens:
 1. Present the conflicts to the user clearly — show severity, the conflicting intent's title/author, and the nature of the overlap.
 2. Ask the user: "These conflicts were detected. Should I proceed anyway?"
