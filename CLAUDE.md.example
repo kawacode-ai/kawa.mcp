@@ -1,51 +1,100 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Project Overview
+Guidance for Claude Code when working in this repository.
 
 <!-- Replace with a 1-2 sentence description of your project -->
 [Your project name] is a [brief description of what it does].
 
-## AI Code Implementation Workflow
+---
 
-**BEFORE exploring code or reading files** for any non-trivial task, follow these steps in order:
+## Workflow — run on every non-trivial turn
 
-1. **Check active intent**: Call `check_active_intent` (kawa-intents MCP) to see if work is already tracked
-2. **Get relevant context**: Call `get_relevant_context` with a description of the task to find past decisions and related intents that may inform your approach
-3. **Then explore code**: Now read files, search the codebase, and analyze the problem
+1. **Check active intent** — `check_active_intent` (kawa-intents MCP). Resume if one exists.
+2. **Get relevant context** — `get_relevant_context` with a task description. Past decisions and related intents inform the approach.
+3. **Now** explore code, read files, plan.
+4. **Create an intent** when the conversation transitions to actual code changes (see "When to create an intent" below).
+5. **Before commit** — `record_decision` for significant decisions (see "Recording decisions" below).
+6. **After commit** — `complete_intent` with the commit SHA and `status: "committed"`. This also triggers auto-capture of code blocks from the diff.
 
-For trivial one-line fixes (typos, obvious bugs), skip the intent workflow entirely — just make the change and commit. No intent needed. For everything else — especially bug fixes from issues, multi-file changes, or unfamiliar code — always start with steps 1-2.
+Skip the entire workflow for trivial one-liners (typos, obvious bugs) — just make the change.
 
-**Handling intent conflicts**: `create_and_activate_intent` runs automatic conflict detection against all existing intents for the repo. If conflicts are found, the tool returns `action: "conflict"` with a list of conflicting intents (severity, overlapping files, semantic opposition). When this happens:
-1. Present the conflicts to the user clearly — show severity, the conflicting intent's title/author, and the nature of the overlap.
-2. Ask the user: "These conflicts were detected. Should I proceed anyway?"
-3. If the user says yes, retry `create_and_activate_intent` with `force: true` to bypass conflict detection. The bypassed conflict IDs are recorded on the intent for audit.
+---
 
-**Recording decisions before commit**: When the user asks to finalize/commit, review the work done in the session and call `record_decision` for each significant decision or lesson *before* creating the commit. Apply a **high bar**: a decision is worth recording only if a future developer (or Claude in a future session) would genuinely benefit from knowing it — i.e., it would change how they approach the same area of code.
+## When to create an intent — vs skip
 
-Record when you:
-- Chose between meaningful alternatives (type: `fork`) — e.g., serde alias vs fixing all reconstruction sites
-- Discovered non-obvious behavior that will recur or affect future work (type: `discovery`) — e.g., UI progress tracking requires completion events per phase
-- Identified a hard constraint that future work must respect (type: `constraint`) — e.g., checkpoint cleanup must wait for persistence
-- Made an explicit trade-off with lasting impact (type: `tradeoff`) — e.g., precision vs simplicity in rate limiting
-- Tried and rejected an approach that looked reasonable (type: `abandoned`)
-- Selected a library or dependency after comparing alternatives (type: `dependency`) — e.g., chose `reqwest` over `hyper` for HTTP
+**Create** an intent for:
+- Explicit change requests ("fix this bug", "add feature X", "refactor Y")
+- User-approved proposals you're about to implement
+- Any turn where you will modify files
 
-Do NOT record:
-- Routine refactors, obvious bug fixes, version bumps, formatting changes
-- Session-only debugging artifacts (e.g., a stray `test.only` or `console.log` that was removed)
-- Anything where the "lesson" is obvious in hindsight or already clear from the code/diff
-- Gotchas with no future recurrence risk (one-off typos, copy-paste errors, trivial config mistakes)
+**Skip** the intent workflow for:
+- Questions ("how does X work?", "why was this done this way?")
+- Investigation ("look at the auth flow", "find where X is called")
+- Architecture / design discussion with no concrete action item
+- Trivial pass-through changes (e.g., just forwarding a new field through a helper)
+
+For exploration turns, still call `get_relevant_context` to enrich your answer — just don't create an intent.
+
+---
+
+## Intent conflicts
+
+`create_and_activate_intent` auto-detects conflicts. When the tool returns `action: "conflict"`:
+
+1. Present each conflict to the user — severity, the conflicting intent's title/author, nature of the overlap.
+2. Ask: "These conflicts were detected. Should I proceed anyway?"
+3. On approval, retry `create_and_activate_intent` with `force: true`. Bypassed conflict IDs are recorded for audit.
+
+---
+
+## Intent reformulation
+
+Intents are living documents, not upfront contracts. When the work reveals that the original title, description, or scope has drifted, call `update_intent` to fix it. **Do not ask the user for permission** — reformulation is expected. An intent may be updated many times before commit.
+
+---
+
+## Recording decisions — apply a high bar
+
+A decision is worth recording **only if** a future developer (or Claude in a future session) would genuinely benefit — i.e., it would change how they approach the same area of code.
+
+**Record when**:
+- `fork` — chose between meaningful alternatives (e.g., serde alias vs. fixing all reconstruction sites)
+- `discovery` — non-obvious behavior that will recur (e.g., UI progress tracking requires per-phase completion events)
+- `constraint` — hard requirement future work must respect (e.g., checkpoint cleanup must wait for persistence)
+- `tradeoff` — explicit trade-off with lasting impact (e.g., precision vs. simplicity in rate limiting)
+- `abandoned` — tried and rejected an approach that looked reasonable
+- `dependency` — selected a library after comparing alternatives (e.g., `reqwest` over `hyper` for HTTP)
+
+**Do NOT record**:
+- Routine refactors, obvious bug fixes, version bumps, formatting
+- Session-only debugging artifacts (stray `test.only`, `console.log` removals)
+- Lessons that are obvious in hindsight or clear from the diff
+- One-off typos, copy-paste errors, trivial config mistakes
 - Decisions with no meaningful alternatives considered
 
-**After committing**: Call `complete_intent` with the commit SHA and status `"committed"`. This marks the intent as done and clears the active intent so a new one can be started. Without this step, intents accumulate as "active" forever.
+---
 
-**Code blocks are auto-captured on commit**: When `complete_intent` runs with a commit SHA, Muninn reads the commit diff, extracts line ranges for each modified file, computes an AST-based semantic anchor per range (for robust re-anchoring after future rebases), encrypts the content, and sends the blocks to the API in the same PATCH call that updates the intent status. There is no manual "assign blocks" step — intent blocks are derived from the commit, not specified by the caller. Manual attachment via `assign_blocks_to_intent` has been removed.
+## Committing pre-existing changes
 
-Implication: an intent that's completed without a `commitSha` will have an empty `blocks` array on the API. For abandoned intents this is correct (the intent is deleted outright). For committed/pushed/done statuses, always pass the commit SHA so the auto-capture can run.
+When uncommitted changes exist that weren't made under an active intent:
 
-**Committing pre-existing changes**: When uncommitted changes exist that weren't made under an active intent, infer intents retroactively: read the diffs, group changes by semantic purpose, call `list_team_intents` to find existing intents that accurately match each group, then commit each group under its matched intent (create a new intent if no accurate match found). Present the grouping plan to the user before committing. Trivial standalone changes (typos, formatting) can be committed without an intent.
+1. Read the diffs.
+2. Group changes by semantic purpose.
+3. Call `get_relevant_context` to find existing intents that accurately match each group.
+4. Commit each group under its matched intent (create a new intent only if no accurate match exists).
+5. Present the grouping plan to the user before committing.
+
+Trivial standalone changes (typos, formatting) can be committed without an intent.
+
+---
+
+## Code blocks are auto-captured on commit
+
+When `complete_intent` runs with a `commitSha`, the diff is read, line ranges are extracted per modified file, an AST-based semantic anchor is computed per range (for robust re-anchoring after rebases), and the blocks are sent to the API in the same PATCH that updates the intent status. **There is no manual "assign blocks" step.**
+
+Implication: an intent completed without a `commitSha` will have an empty `blocks` array. For `abandoned` intents that's fine. For `committed` / `pushed` / `done`, **always pass the commit SHA** so auto-capture runs.
+
+---
 
 ## Repository Origin and Path
 
@@ -57,11 +106,11 @@ Use these values for ALL MCP tool calls:
 
 **Important**: `repoPath` must point to the directory containing the `.git` folder.
 
-<!-- ============================================================
+<!-- =========================================================
      EVERYTHING BELOW IS OPTIONAL — add what's useful for your project
-     ============================================================ -->
+     ========================================================= -->
 
-<!-- OPTIONAL: For monorepos or multi-project workspaces, replace the
+<!-- OPTIONAL: monorepo / multi-project workspaces. Replace the
      single repoOrigin/repoPath above with a table:
 
 ### Repository Origins and Paths
@@ -72,20 +121,25 @@ Each sub-project has its own `.git` directory. When calling MCP tools, use the *
 |-------------|-----------------------------------------|----------------------------------|
 | my-api      | `git@github.com:my-org/my-api.git`      | `/path/to/workspace/my-api`      |
 | my-frontend | `git@github.com:my-org/my-frontend.git` | `/path/to/workspace/my-frontend` |
+
+Cross-repo workflow:
+1. Create an intent in each affected repo at the start — not retroactively
+2. Record decisions in the repo they affect
+3. Skip the intent workflow for repos with trivial pass-through changes
+4. Check `check_active_intent` per repo before modifying it
 -->
 
-<!-- OPTIONAL: Add project-specific sections as needed.
-     Examples of what to include:
+<!-- OPTIONAL: Project-specific sections.
+
+## Global constraints
+Rules that apply to every change (e.g., DB name, no fallback code paths, required approval patterns).
 
 ## Development Commands
-- How to run tests, lint, build, etc.
+How to run tests, lint, build.
 
-## Code Style
-- Project conventions Claude should follow
+## Gotchas
+Non-obvious pitfalls Claude will hit.
 
-## Architecture
-- Key architectural decisions or patterns
-
-## Important Files
-- Files Claude should know about
+## Reference
+Link to a sibling ARCHITECTURE.md for IPC schemas, data models, etc. Keep this file behavior-focused.
 -->
