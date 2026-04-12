@@ -7,8 +7,9 @@ export const completeIntentSchema = z.object({
   repoPath: z.string().describe('Local path to the repository root'),
   intentId: z.string().optional().describe('Expected intent ID to complete. If provided, the tool verifies this matches the active intent and rejects if mismatched (prevents race conditions with concurrent sessions).'),
   commitSha: z.string().optional().describe('The git commit SHA to associate with this intent (if already committed)'),
-  status: z.enum(['committed', 'pushed', 'done', 'abandoned']).default('committed')
-    .describe('The new status for the intent. Use "committed" after git commit, "done" when work is complete, "abandoned" to discard.')
+  status: z.enum(['committed', 'pushed', 'done', 'abandoned', 'superseded']).default('committed')
+    .describe('The new status for the intent. Use "committed" after git commit, "done" when work is complete, "abandoned" to discard, "superseded" when another intent replaces this one.'),
+  supersededBy: z.string().optional().describe('Intent ID that supersedes this one. Required when status is "superseded".')
 })
 
 export type CompleteIntentInput = z.infer<typeof completeIntentSchema>
@@ -58,6 +59,7 @@ export async function completeIntent(input: CompleteIntentInput): Promise<Comple
     repoOrigin: actualOrigin,
     status: input.status,
     commitSha: input.commitSha,
+    supersededBy: input.supersededBy,
   })
 
   const intentId = res.intentId || ''

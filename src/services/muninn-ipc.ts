@@ -249,6 +249,12 @@ function routeResponse(msg: any): void {
     }
     const data = msg.data || {}
     if (data.success === false) {
+      // Conflict responses carry structured `conflicts` data that the calling
+      // tool must present to the user — not a dispatch failure. Let them pass.
+      if (data.conflict === true) {
+        pending.resolve(data)
+        return
+      }
       const errorMsg = typeof data.error === 'string' && data.error.length > 0
         ? data.error
         : 'Muninn handler returned success: false with no error message'
