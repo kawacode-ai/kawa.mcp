@@ -13,6 +13,20 @@ export const inferHistorySchema = z.object({
 
 export type InferHistoryInput = z.infer<typeof inferHistorySchema>
 
+export type AutoMode =
+  | 'first-run'
+  | 'resume'
+  | 'head-equals-last'
+  | 'fallback-rewritten'
+  | 'fallback-no-remote'
+  | 'fallback-error'
+
+export interface AutoModeResolution {
+  commits: number
+  mode: AutoMode
+  lastSha?: string
+}
+
 export interface InferHistoryResponse {
   started?: boolean
   estimate?: {
@@ -28,7 +42,26 @@ export interface InferHistoryResponse {
   forge?: string
   forge_cli_available?: boolean
   commit_count?: number
+  autoMode?: AutoModeResolution
   message: string
+}
+
+function describeAutoMode(am: AutoModeResolution): string {
+  const sha = am.lastSha ? ` (last_inferred_sha=${am.lastSha.slice(0, 7)})` : ''
+  switch (am.mode) {
+    case 'first-run':
+      return `\nℹ Auto-mode: first run for this repo — analyzing fallback of ${am.commits} most recent commits.`
+    case 'resume':
+      return `\nℹ Auto-mode: resumed${sha} — ${am.commits} commits since last run.`
+    case 'head-equals-last':
+      return `\nℹ Auto-mode: HEAD already matches last_inferred_sha${sha} — nothing new to analyze.`
+    case 'fallback-rewritten':
+      return `\n⚠ Auto-mode: stored last_inferred_sha${sha} is no longer reachable (rebase/GC/branch switch). Falling back to ${am.commits} most recent commits.`
+    case 'fallback-no-remote':
+      return `\n⚠ Auto-mode: no git remote 'origin' — cannot key resume state. Falling back to ${am.commits} most recent commits.`
+    case 'fallback-error':
+      return `\n⚠ Auto-mode: failed to resolve resume state (see Muninn logs). Falling back to ${am.commits} most recent commits.`
+  }
 }
 
 export async function inferHistory(input: InferHistoryInput): Promise<InferHistoryResponse> {
@@ -56,12 +89,15 @@ export async function inferHistory(input: InferHistoryInput): Promise<InferHisto
       }
     }
 
+    const autoModeNote = res.autoMode ? describeAutoMode(res.autoMode) : ''
+
     return {
       estimate: res.estimate,
       forge: res.forge,
       forge_cli_available: res.forge_cli_available,
       commit_count: res.commit_count,
-      message: `Estimated cost: $${res.estimate?.cost_usd ?? '?'} for ~${res.estimate?.est_stories ?? '?'} stories from ${res.commit_count ?? '?'} commits${forgeWarning}`
+      autoMode: res.autoMode,
+      message: `Estimated cost: $${res.estimate?.cost_usd ?? '?'} for ~${res.estimate?.est_stories ?? '?'} stories from ${res.commit_count ?? '?'} commits${autoModeNote}${forgeWarning}`
     }
   }
 
@@ -75,10 +111,12 @@ export async function inferHistory(input: InferHistoryInput): Promise<InferHisto
   if (input.commits !== undefined) runPayload.commits = input.commits
 
   const res = await request('inference', 'run', runPayload)
+  const autoModeNote = res.autoMode ? describeAutoMode(res.autoMode) : ''
 
   return {
     started: res.started,
-    message: res.message || 'Inference pipeline started. Progress updates will be sent as the pipeline runs.'
+    autoMode: res.autoMode,
+    message: (res.message || 'Inference pipeline started. Progress updates will be sent as the pipeline runs.') + autoModeNote
   }
 }
 
