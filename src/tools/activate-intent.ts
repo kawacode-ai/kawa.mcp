@@ -22,7 +22,7 @@ export async function activateIntent(input: ActivateIntentInput): Promise<Activa
 
   // Check if there's already an active intent
   const activeRes = await request('intent', 'get-active', { repoOrigin: actualOrigin })
-  const previousActiveId = activeRes.activeIntentId || activeRes.activeIntent?.id || ''
+  const previousActiveId = activeRes.intentId || activeRes.intent?.id || ''
 
   if (previousActiveId === input.intentId) {
     return {

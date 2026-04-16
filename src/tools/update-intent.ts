@@ -32,7 +32,7 @@ export async function updateIntent(input: UpdateIntentInput): Promise<UpdateInte
   let intentId = input.intentId
   if (!intentId) {
     const activeRes = await request('intent', 'get-active', { repoOrigin: actualOrigin })
-    intentId = activeRes.activeIntentId || activeRes.activeIntent?.id || ''
+    intentId = activeRes.intentId || activeRes.intent?.id || ''
     if (!intentId) {
       return {
         success: false,

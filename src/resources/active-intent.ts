@@ -27,8 +27,8 @@ export async function readActiveIntentResource(repoOrigin?: string): Promise<str
       repoOrigin: repoOrigin || '',
     })
 
-    // Muninn returns { success, activeIntentId, activeIntent }
-    const intent = res.activeIntent
+    // Muninn returns { hasActiveIntent, intentId, intent }
+    const intent = res.intent
     if (!intent) {
       return JSON.stringify({
         hasActiveIntent: false,

@@ -39,8 +39,8 @@ export async function checkActiveIntent(input: CheckActiveIntentInput): Promise<
     repoOrigin: actualOrigin,
   })
 
-  // Muninn returns { success, activeIntentId, activeIntent }
-  const intent = res.activeIntent
+  // Muninn returns { hasActiveIntent, intentId, intent }
+  const intent = res.intent
   if (!intent) {
     return { hasActiveIntent: false }
   }
@@ -48,7 +48,7 @@ export async function checkActiveIntent(input: CheckActiveIntentInput): Promise<
   return {
     hasActiveIntent: true,
     intent: {
-      id: intent.id || res.activeIntentId || '',
+      id: intent.id || res.intentId || '',
       title: intent.title || '',
       description: intent.description || '',
       templateType: (intent.templateType || 'feature') as 'feature' | 'refactor' | 'exploration',

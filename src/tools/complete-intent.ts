@@ -29,7 +29,7 @@ export async function completeIntent(input: CompleteIntentInput): Promise<Comple
   // If intentId provided, verify it matches the active intent before completing
   if (input.intentId) {
     const activeRes = await request('intent', 'get-active', { repoOrigin: actualOrigin })
-    const activeId = activeRes.activeIntentId || activeRes.activeIntent?.id || ''
+    const activeId = activeRes.intentId || activeRes.intent?.id || ''
 
     if (!activeId) {
       return {
@@ -43,7 +43,7 @@ export async function completeIntent(input: CompleteIntentInput): Promise<Comple
     }
 
     if (activeId !== input.intentId) {
-      const activeTitle = activeRes.activeIntent?.title || 'unknown'
+      const activeTitle = activeRes.intent?.title || 'unknown'
       return {
         success: false,
         intentId: input.intentId,
