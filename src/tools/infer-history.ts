@@ -75,7 +75,11 @@ export async function inferHistory(input: InferHistoryInput): Promise<InferHisto
   if (input.commits !== undefined) inferencePayload.commits = input.commits
 
   if (input.estimateOnly) {
-    const res = await request('inference', 'estimate', inferencePayload)
+    // Walking git history on deep repos (e.g., zed at 37k commits) exceeds
+    // the 30s default. Estimate is synchronous — no async-start response —
+    // so the caller blocks until the server returns.
+    const ESTIMATE_TIMEOUT_MS = 180_000
+    const res = await request('inference', 'estimate', inferencePayload, ESTIMATE_TIMEOUT_MS)
 
     let forgeWarning = ''
     if (!res.forge_cli_available) {

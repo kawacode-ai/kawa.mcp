@@ -7,7 +7,7 @@
  * Modeled after kawa.i18n/src/ipc/muninn-socket.ts but simplified:
  * - No UI bundle or manifest (MCP has no UI)
  * - Request/response correlation via _msgId
- * - 30s timeout per request
+ * - 30s default timeout per request, overridable per call
  */
 
 import * as net from 'net'
@@ -21,7 +21,7 @@ const EXTENSION_DOMAINS = ['intent', 'intent-block', 'decision', 'claude-code', 
 
 /** Stable session ID for this MCP process. Identifies this agent in intent attribution. */
 export const SESSION_ID = `mcp-${crypto.randomBytes(4).toString('hex')}`
-const REQUEST_TIMEOUT_MS = 30_000
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000
 const HANDSHAKE_TIMEOUT_MS = 10_000
 
 /**
@@ -268,12 +268,22 @@ function routeResponse(msg: any): void {
 /**
  * Send an IPC request to Muninn and await the correlated response.
  *
- * @param domain - Handler domain (e.g., 'intent', 'decision')
- * @param action - Handler action (e.g., 'create', 'get-active')
- * @param data   - Request payload
+ * @param domain    - Handler domain (e.g., 'intent', 'decision')
+ * @param action    - Handler action (e.g., 'create', 'get-active')
+ * @param data      - Request payload
+ * @param timeoutMs - Per-call timeout override. Defaults to 30s, which is the
+ *                    right fast-fail ceiling for synchronous handlers. A few
+ *                    synchronous endpoints (e.g., inference:estimate on deep
+ *                    repos) legitimately run longer — callers raise it
+ *                    explicitly rather than relaxing the global default.
  * @returns The response data from Muninn
  */
-export async function request(domain: string, action: string, data: any = {}): Promise<any> {
+export async function request(
+  domain: string,
+  action: string,
+  data: any = {},
+  timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS,
+): Promise<any> {
   if (!socket || !connected) {
     await connectToMuninn()
   }
@@ -283,8 +293,8 @@ export async function request(domain: string, action: string, data: any = {}): P
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       pendingRequests.delete(msgId)
-      reject(new Error(`Muninn request timeout (${REQUEST_TIMEOUT_MS / 1000}s): ${domain}:${action}`))
-    }, REQUEST_TIMEOUT_MS)
+      reject(new Error(`Muninn request timeout (${timeoutMs / 1000}s): ${domain}:${action}`))
+    }, timeoutMs)
 
     pendingRequests.set(msgId, { resolve, reject, timer })
 
