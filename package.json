@@ -1,6 +1,6 @@
 {
   "name": "@kawacode/mcp",
-  "version": "5.2.0",
+  "version": "5.2.2",
   "description": "MCP server for Kawa Code intent integration with Claude Code and Cursor AI",
   "main": "build/index.js",
   "bin": {
