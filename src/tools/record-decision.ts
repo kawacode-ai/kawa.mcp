@@ -21,9 +21,16 @@ export const recordDecisionSchema = z.object({
   consequences: z.string().optional().describe('Downstream implications of this decision'),
   symptom: z.string().optional().describe('Observable symptom that indicates this decision is relevant (e.g., error messages, runtime panics, unexpected behavior). Useful for discovery and constraint decisions.'),
   relatedFiles: z.array(z.string()).optional().describe('File paths affected by this decision'),
+  supersedes: z.array(z.string()).optional().describe('Decision IDs that this one replaces. When a later decision supersedes an earlier one, pass the earlier decisionId(s) here so the evolve pipeline can track the lineage.'),
   constraintsChecked: z.array(z.string()).optional().describe('Which architectural constraints were verified before this decision'),
   constraintViolations: z.array(constraintViolationSchema).optional()
-    .describe('Alternatives that were rejected due to constraint violations')
+    .describe('Alternatives that were rejected due to constraint violations'),
+  source: z.enum(['user', 'agent', 'extractor', 'infer_history']).optional().default('agent')
+    .describe('Provenance: user (human-recorded), agent (AI deliberately recorded via this tool — the default), extractor (from thought-chain extraction), infer_history (from commit-history extraction). Most callers leave this as the default.'),
+  confidence: z.enum(['high', 'medium', 'low']).optional()
+    .describe('Self-rated confidence in the decision. Meaningful only for extractor and infer_history sources — leave null for deliberate recordings.'),
+  sourceThoughtIds: z.array(z.string()).optional()
+    .describe('Thought-chain entry IDs this record was extracted from. Only set by the extractor path.'),
 })
 
 export type RecordDecisionInput = z.infer<typeof recordDecisionSchema>
@@ -46,8 +53,12 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
     consequences: input.consequences,
     symptom: input.symptom,
     relatedFiles: input.relatedFiles || [],
+    supersedes: input.supersedes || [],
     constraintsChecked: input.constraintsChecked || [],
     constraintViolations: input.constraintViolations || [],
+    source: input.source,
+    confidence: input.confidence,
+    sourceThoughtIds: input.sourceThoughtIds || [],
   })
 
   return {
