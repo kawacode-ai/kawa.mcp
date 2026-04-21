@@ -33,16 +33,6 @@ export const evolveDecisionsTool = {
   name: 'evolve_decisions',
   description: `Build a decision evolution graph from previously extracted stories.
 
-This analyzes how decisions relate across stories over time:
-1. **Bucketing**: Groups stories by file overlap and keyword similarity (Union-Find)
-2. **Edge classification**: Uses LLM to identify relationships between decisions in each bucket:
-   - supersedes: Later decision replaces earlier (earlier is outdated)
-   - reinforces: Later decision confirms earlier still holds
-   - contradicts: Later decision reverses earlier
-   - specializes: Later decision adds specificity (both remain valid)
-3. **Annotation**: Labels each decision as stable, orphan, evolved, or abandoned
-4. **Curation**: Keeps stable + orphan decisions, drops evolved + abandoned
-
 Note: \`infer_history\` already chains evolve + persist automatically. Use this tool only if you want to run evolution separately on a pre-existing set of stories.
 
 If \`repoPath\` is provided, curated stories are automatically persisted as intents with decisions after evolution completes.

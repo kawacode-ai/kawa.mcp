@@ -29,12 +29,20 @@ interface ConflictInfo {
   oppositionDetail: string | null
 }
 
+export interface ActiveIntentLockConflict {
+  existingIntentId: string
+  title?: string
+  createdBy?: string
+  author?: string
+}
+
 export interface CreateIntentResponse {
   success: boolean
   intentId: string
-  action: 'created' | 'reactivated' | 'conflict'
+  action: 'created' | 'reactivated' | 'conflict' | 'lock_conflict'
   message: string
   conflicts?: ConflictInfo[]
+  lockConflict?: ActiveIntentLockConflict
 }
 
 export async function createAndActivateIntent(input: CreateIntentInput): Promise<CreateIntentResponse> {
@@ -101,11 +109,32 @@ export async function createAndActivateIntent(input: CreateIntentInput): Promise
   }
   const action: 'created' | 'reactivated' = createRes.action === 'reactivated' ? 'reactivated' : 'created'
 
-  // Step 2: Set it as active
-  await request('intent', 'set-active', {
+  // Step 2: Set it as active.
+  // The per-repo lock may reject this step even though the intent itself was created —
+  // forward force to Muninn and surface the lock conflict separately from the
+  // content-similarity conflict that createRes handles above.
+  const setRes = await request('intent', 'set-active', {
     repoOrigin: actualOrigin,
     intentId,
+    force: input.force || false,
   })
+
+  if (setRes.conflict === true && setRes.conflictType === 'active_intent_lock') {
+    const lockConflict = await buildLockConflictDetails(actualOrigin, setRes.existingIntentId)
+    const idShort = setRes.existingIntentId.substring(0, 8)
+    const who = lockConflict.author ? ` by ${lockConflict.author}` : ''
+    const titlePart = lockConflict.title ? ` "${lockConflict.title}"` : ''
+    return {
+      success: false,
+      intentId,
+      action: 'lock_conflict',
+      lockConflict,
+      message:
+        `Intent "${input.title}" was ${action} (id: ${intentId.substring(0, 8)}), but could not be activated: ` +
+        `repo already owns intent ${idShort}${titlePart}${who}. ` +
+        `Retry with force=true to take over, complete_intent on ${idShort} first, or abandon this new intent.`,
+    }
+  }
 
   const message = action === 'reactivated'
     ? `Reactivated existing similar intent: "${input.title}" — resuming previous work instead of creating a duplicate.`
@@ -117,6 +146,24 @@ export async function createAndActivateIntent(input: CreateIntentInput): Promise
     action,
     message,
   }
+}
+
+async function buildLockConflictDetails(repoOrigin: string, existingIntentId: string): Promise<ActiveIntentLockConflict> {
+  try {
+    const res = await request('intent', 'get-active', { repoOrigin })
+    const intent = res.intent
+    if (intent && intent.id === existingIntentId) {
+      return {
+        existingIntentId,
+        title: intent.title,
+        createdBy: intent.createdBy,
+        author: intent.authorInfo?.name || intent.author,
+      }
+    }
+  } catch {
+    // Fall through to ID-only response
+  }
+  return { existingIntentId }
 }
 
 export const createAndActivateIntentTool = {
@@ -132,7 +179,14 @@ This ensures all AI-generated code gets properly tracked and attributed.
 
 If the tool returns conflicts (action="conflict"), present the conflict
 details to the user and ask whether to proceed. If yes, retry with
-force=true to bypass conflict detection.`,
+force=true to bypass conflict detection.
+
+Two distinct conflict types exist, both bypassed by force=true:
+- action="conflict": content-similarity conflict from intent creation (another team
+  member's intent overlaps semantically or in files).
+- action="lock_conflict": per-repo active-intent lock — another session on this repo
+  already owns the active intent slot. The new intent was still created and can be
+  activated later; or call complete_intent on the existing one first.`,
   inputSchema: createAndActivateIntentSchema,
   handler: createAndActivateIntent
 }
