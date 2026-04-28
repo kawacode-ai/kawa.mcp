@@ -76,21 +76,22 @@ export async function detectIntentConflicts(input: DetectIntentConflictsInput): 
 
 export const detectIntentConflictsTool = {
   name: 'detect_intent_conflicts',
-  description: `Detect intents from team members that potentially conflict with your active intent.
+  description: `Find intents from other team members that potentially conflict with the active intent.
 
-Uses server-side embedding similarity search to find other team members' intents
-that overlap with yours in scope, files, or architectural decisions.
+When to use:
+- Before committing, to surface overlapping team work so the user can coordinate before merging.
 
-Call this before committing to check for potential conflicts.
+Inputs of note:
+- \`intentId\`: the active intent to check against.
+- \`minScore\` (optional): minimum match score to include in results.
 
 Returns scored conflict candidates with:
-- score: Similarity score (higher = more likely conflict)
-- overlappingFiles: Files affected by both intents
-- decisions: Architectural decisions attached to the conflicting intent
-- author: Who is working on the conflicting intent
+- \`score\`: how strongly the candidate matches (higher = more likely conflict).
+- \`overlappingFiles\`: files affected by both intents.
+- \`decisions\`: decisions attached to the conflicting intent.
+- \`author\`: who is working on the conflicting intent.
 
-The conflict list is informational — review the candidates and their decisions
-to determine if coordination is needed.`,
+The list is informational — review candidates and their decisions to decide whether coordination is needed.`,
   inputSchema: detectIntentConflictsSchema,
   handler: detectIntentConflicts
 }

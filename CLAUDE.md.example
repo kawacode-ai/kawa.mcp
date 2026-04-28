@@ -90,7 +90,7 @@ Trivial standalone changes (typos, formatting) can be committed without an inten
 
 ## Code blocks are auto-captured on commit
 
-When `complete_intent` runs with a `commitSha`, the diff is read, line ranges are extracted per modified file, an AST-based semantic anchor is computed per range (for robust re-anchoring after rebases), and the blocks are sent to the API in the same PATCH that updates the intent status. **There is no manual "assign blocks" step.**
+When `complete_intent` runs with a `commitSha`, the modified code blocks for that commit are captured and attached to the intent in the same call that updates the intent status. **There is no manual "assign blocks" step.**
 
 Implication: an intent completed without a `commitSha` will have an empty `blocks` array. For `abandoned` intents that's fine. For `committed` / `pushed` / `done`, **always pass the commit SHA** so auto-capture runs.
 

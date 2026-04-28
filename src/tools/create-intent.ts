@@ -48,10 +48,8 @@ export interface CreateIntentResponse {
 export async function createAndActivateIntent(input: CreateIntentInput): Promise<CreateIntentResponse> {
   const actualOrigin = resolveOrigin(input.repoOrigin, input.repoPath)
 
-  // Step 1: Create (or find-and-reactivate) the intent.
-  // The Muninn handler proxies to API POST /intents/find-or-create which
-  // dedups by embedding similarity (≥ 0.85) and runs automatic conflict
-  // detection against all other intents for the repo.
+  // Step 1: Create the intent. If a sufficiently similar one already exists, the
+  // server may reactivate it instead of creating a duplicate.
   const createRes = await request('intent', 'create', {
     repoOrigin: actualOrigin,
     title: input.title,

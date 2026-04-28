@@ -116,34 +116,25 @@ export async function getRelevantContext(input: GetRelevantContextInput): Promis
 
 export const getRelevantContextTool = {
   name: 'get_relevant_context',
-  description: `Find context relevant to a specific user request.
+  description: `Find past intents and decisions relevant to the current user request.
 
-Use this when you need context that's specifically relevant to the current task,
-rather than all recent context. This is more token-efficient for large projects.
+When to use:
+- After you have done a quick initial exploration of the user's request and know which files are involved. Calling earlier with only a vague prompt gives weak results.
+- To pull task-specific context instead of dumping all recent activity — preferred for large projects.
 
-**IMPORTANT: Call this AFTER initial exploration of the request**, not immediately.
-Once you know which files are involved, pass them in \`activeFiles\` for much better
-relevance matching. A vague prompt alone yields poor results.
-
-The tool:
-1. Sends your prompt to the API for semantic embedding
-2. Computes cosine similarity against stored embeddings for all intents and decisions
-3. Uses \`activeFiles\` to boost items with matching file paths
-4. Returns only the most relevant items above the minimum score threshold
-
-**Recommended workflow:**
-1. \`check_active_intent\` at SESSION START (resume existing work)
-2. Explore the user's request (read files, understand scope)
-3. \`get_relevant_context\` with prompt + activeFiles (task-specific context)
+Inputs of note:
+- \`prompt\`: the user request, in their words or your paraphrase.
+- \`activeFiles\` (recommended): files you have identified as relevant to the request. Significantly improves relevance.
+- \`maxIntents\`, \`maxDecisions\`, \`minRelevance\`: result-shaping caps and threshold.
 
 Returns:
-- **relevantIntents**: Past work related to the current task
-- **relevantDecisions**: Decisions affecting similar code/concepts (both intent-scoped and repo-scoped)
+- \`relevantIntents\`: past work units (intents) related to the task, scored by relevance.
+- \`relevantDecisions\`: prior decisions related to the task — both intent-scoped and repo-scoped.
 
-Example: User asks "Add validation to user registration endpoint"
-After exploring, you found src/routes/user.ts and src/validators/
-Call with: prompt + activeFiles: ["src/routes/user.ts", "src/validators/user.ts"]
-Returns intents/decisions matching these files and keywords`,
+Recommended sequence:
+1. \`check_active_intent\` at session start to resume any existing work.
+2. Briefly explore the user's request to identify involved files.
+3. \`get_relevant_context\` with the prompt and \`activeFiles\` to inform the approach.`,
   inputSchema: getRelevantContextSchema,
   handler: getRelevantContext
 }
