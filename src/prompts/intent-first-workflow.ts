@@ -38,7 +38,7 @@ Before using MCP tools, assess the task complexity. Match your workflow to the t
 | **Before coding** | Check/create intent | \`check_active_intent\`, \`create_and_activate_intent\` |
 | **On "done"/"commit"/"worked"/etc.** | Verify diff → Git commit → Complete | \`get_intent_changes\`, \`complete_intent\` |
 
-> **Note**: Code blocks are attached to the intent automatically when you call \`complete_intent\` with a commit SHA. Muninn reads the commit diff, computes semantic anchors for each modified range, and sends the encrypted blocks to the API in the same call that updates the intent status. There is no manual "assign blocks" step.
+> **Note**: Code blocks are attached to the intent automatically when you call \`complete_intent\` with a commit SHA. There is no manual "assign blocks" step.
 
 **Trigger phrases for commit flow**: "this worked", "let's commit", "done", "close this", "ship it", "looks good"
 
@@ -125,7 +125,7 @@ When the user chooses to commit (or explicitly requests it):
    Intent-ID: <intent-id>
    Co-Authored-By: Claude <noreply@anthropic.com>"
    \`\`\`
-6. **Complete intent**: Call \`complete_intent\` with the commit SHA and status='committed'. Muninn will auto-capture the modified code blocks from the commit diff, compute semantic anchors, and send them together with the status update in one API call.
+6. **Complete intent**: Call \`complete_intent\` with the commit SHA and status='committed'. The modified code blocks are auto-captured and attached to the intent as part of the same call.
 7. **Report**: Tell the user the commit SHA and that the intent is complete
 
 - If user had a new request that triggered the commit, proceed to create a new intent for it

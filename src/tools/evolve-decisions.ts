@@ -3,7 +3,7 @@ import { request } from '../services/muninn-ipc.js'
 
 export const evolveDecisionsSchema = z.object({
   stories: z.array(z.any()).describe('Array of story objects from a previous infer_history run'),
-  model: z.string().optional().default('claude-haiku-4-5-20251001').describe('Anthropic model for edge classification (default: claude-haiku-4-5-20251001, cheaper model recommended)'),
+  model: z.string().optional().default('claude-haiku-4-5-20251001').describe('Anthropic model used for the curation pass (default: claude-haiku-4-5-20251001).'),
   repoPath: z.string().optional().describe('Local path to the repository root (required for auto-persist after evolution)'),
   repoOrigin: z.string().optional().describe('Git remote origin URL (auto-detected from repoPath if not provided)'),
 })
@@ -31,13 +31,19 @@ export async function evolveDecisions(input: EvolveDecisionsInput): Promise<Evol
 
 export const evolveDecisionsTool = {
   name: 'evolve_decisions',
-  description: `Build a decision evolution graph from previously extracted stories.
+  description: `Curate a set of previously extracted stories so that only the decisions still worth keeping are persisted.
 
-Note: \`infer_history\` already chains evolve + persist automatically. Use this tool only if you want to run evolution separately on a pre-existing set of stories.
+When to use:
+- After running \`infer_history\` in story-only mode (rare — \`infer_history\` already chains this step automatically).
+- When you have a pre-existing set of stories you want to re-curate without re-running history extraction.
 
-If \`repoPath\` is provided, curated stories are automatically persisted as intents with decisions after evolution completes.
+Inputs:
+- \`stories\`: array of story objects from a previous \`infer_history\` run.
+- \`repoPath\` (optional): when provided, curated results are persisted as intents and decisions for the repo after curation finishes.
+- \`model\` (optional): Anthropic model used for the curation pass.
 
-The pipeline runs asynchronously — returns immediately. Uses a cheaper model (haiku) by default since edge classification requires less reasoning than story analysis.`,
+Behavior:
+- Runs asynchronously — returns immediately with a started/pending status while progress is reported separately.`,
   inputSchema: evolveDecisionsSchema,
   handler: evolveDecisions
 }

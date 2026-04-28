@@ -211,7 +211,7 @@ When uncommitted changes exist that weren't made under an active intent, infer i
 | Tool | Purpose |
 |------|---------|
 | `infer_history` | Analyze git commit history to extract development stories and decisions |
-| `evolve_decisions` | Build a decision evolution graph from previously extracted stories |
+| `evolve_decisions` | Re-curate previously extracted stories so only the decisions still worth keeping are persisted |
 
 #### Lightweight Logging
 
@@ -245,14 +245,7 @@ Two MCP tools analyze git commit history to extract structured development knowl
 
 ### `infer_history`
 
-Runs the full pipeline: **infer → evolve → persist**.
-
-1. Groups commits into coherent development stories
-2. Deep analysis to extract architectural decisions and lessons learned
-3. Curates decisions by finding relationships (supersedes, reinforces, contradicts, specializes)
-4. Stores curated stories as intents with decisions and lessons
-
-The pipeline runs asynchronously inside Kawa Code. Progress is shown in the desktop app. Supports checkpointing — if interrupted, re-running resumes from where it left off.
+Analyzes a repository's git commit history and produces intents and decisions for the repo. Runs asynchronously inside Kawa Code with progress shown in the desktop app; if interrupted, re-running resumes from where it left off.
 
 **Usage:**
 ```
@@ -262,7 +255,7 @@ then run it with estimateOnly: false.
 
 ### `evolve_decisions`
 
-Builds a decision evolution graph from previously extracted stories. Note: `infer_history` already chains evolve + persist automatically. Use this tool only if you want to run evolution separately on a pre-existing set of stories.
+Re-curates a pre-existing set of stories (e.g., from a previous `infer_history` run) so that only the decisions still worth keeping are persisted. `infer_history` already performs this curation automatically — use `evolve_decisions` only when you want to run it separately on existing stories.
 
 ---
 

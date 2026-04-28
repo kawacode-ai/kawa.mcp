@@ -6,7 +6,7 @@ export const inferHistorySchema = z.object({
   commits: z.number().optional().describe('Number of recent commits to analyze. If omitted, the server resumes from the last commit infer_history processed for this repo (or falls back to 50 on first run).'),
   contextIssues: z.boolean().optional().default(false).describe('Include context issues from commit date range (requires gh/glab CLI)'),
   model: z.string().optional().default('claude-sonnet-4-20250514').describe('Anthropic model to use (default: claude-sonnet-4-20250514)'),
-  maxStories: z.number().optional().default(0).describe('Maximum stories to analyze in Pass 2 (0 = unlimited)'),
+  maxStories: z.number().optional().default(0).describe('Maximum number of stories to analyze in this run (0 = unlimited).'),
   allowCommitSplitting: z.boolean().optional().default(false).describe('Allow splitting a single commit into multiple stories when it contains unrelated changes (recommended for repos with messy commit history)'),
   estimateOnly: z.boolean().optional().default(true).describe('If true (default), only estimate token cost without running the pipeline. Set to false to run the full pipeline.'),
 })
@@ -126,22 +126,24 @@ export async function inferHistory(input: InferHistoryInput): Promise<InferHisto
 
 export const inferHistoryTool = {
   name: 'infer_history',
-  description: `Analyze git commit history to extract structured development knowledge (intents and decisions).
+  description: `Analyze a repository's git commit history and produce structured development knowledge (intents and decisions) for the repo.
 
-Runs the full pipeline automatically: infer → evolve → persist.
+When to use:
+- To bootstrap a repository that has no recorded intents/decisions yet.
+- To extend coverage for new commits since the last run (resumes automatically when no \`commits\` value is provided).
 
-1. **Pass 1**: Groups commits into coherent development stories with value hints
-2. **Pass 2**: Deep analysis of each story to extract architectural decisions
-3. **Evolution**: Curates decisions by finding relationships (supersedes, reinforces, contradicts, specializes)
-4. **Persist**: Stores curated stories as intents with decisions (auto-syncs to cloud)
+Inputs of note:
+- \`estimateOnly\` (default true): returns a token/cost estimate without running. Call with \`estimateOnly: true\` first to preview cost, then re-call with \`estimateOnly: false\` to run.
+- \`commits\` (optional): how many recent commits to analyze. Omit to resume from where the last run stopped (or fall back to a sensible default on first run).
+- \`contextIssues\`: include PR/MR descriptions and issue discussions when an authenticated forge CLI (\`gh\` or \`glab\`) is available; auto-skipped otherwise.
+- \`allowCommitSplitting\`: enable when commit history is messy and a single commit may cover unrelated changes.
+- \`model\`, \`maxStories\`: Anthropic model and per-run cap.
 
-Use \`estimateOnly: true\` first to preview token cost before running the full pipeline.
-
-The pipeline supports checkpointing — if interrupted, re-running resumes from where it left off.
-
-Extraction includes: git log, file diffs, code annotations, revert detection, and optionally PR/MR descriptions + issue discussions (requires gh or glab CLI, auto-skipped if unavailable).
-
-Supports GitHub (gh CLI) and GitLab (glab CLI). Forge is auto-detected from the remote origin.`,
+Behavior:
+- A run is asynchronous — returns immediately with a started/pending status; progress is reported separately.
+- Results are persisted as intents and decisions for the repo on completion.
+- If interrupted, re-running resumes from where it left off.
+- GitHub and GitLab are supported; the forge is detected from the remote origin.`,
   inputSchema: inferHistorySchema,
   handler: inferHistory
 }
