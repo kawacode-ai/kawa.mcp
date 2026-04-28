@@ -4,7 +4,9 @@
   "description": "MCP server for Kawa Code intent integration with Claude Code and Cursor AI",
   "main": "build/index.js",
   "bin": {
-    "kawacode-mcp": "build/index.js"
+    "kawacode-mcp": "build/index.js",
+    "kawacode-capture-thoughts": "build/capture-thoughts.js",
+    "kawacode-extract-trigger": "build/extract-trigger.js"
   },
   "type": "module",
   "license": "SEE LICENSE IN LICENSE",
