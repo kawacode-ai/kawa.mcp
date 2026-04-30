@@ -1,0 +1,107 @@
+# CLAUDE.md — kawa.mcp
+
+Guidance for Claude Code when working in this repository.
+
+**kawa.mcp** is the `kawa-intents` MCP server (npm: `@kawacode/mcp`). It exposes intent tracking, decision recording, and team-coordination tools to AI coding assistants (Claude Code, Cursor, etc.) by proxying over IPC to the Kawa Code desktop app (Muninn).
+
+The server itself owns no business logic — every tool is a thin adapter that forwards to Muninn over Unix sockets / named pipes. The interesting algorithms (intent management, decision evolution, conflict detection) live in `kawa.muninn` (closed-source).
+
+---
+
+## Workflow — run on every non-trivial turn
+
+Follow the standard Kawa Code workflow defined in the parent [Odin CLAUDE.md](../CLAUDE.md):
+
+1. `check_active_intent` — resume if one exists.
+2. `get_relevant_context` with a task description.
+3. Now explore code, read files, plan.
+4. Create an intent when transitioning to actual code changes.
+5. Before commit — `record_decision` for significant decisions.
+6. After commit — `complete_intent` with the commit SHA and `status: "committed"`.
+
+Use `repoOrigin: git@github.com:codeawareness/kawa.mcp.git` and `repoPath: /Users/markvasile/Code/CodeAwareness/Odin/kawa.mcp`.
+
+---
+
+## Build & Development
+
+```bash
+yarn build             # tsc → build/
+yarn dev               # tsc --watch
+yarn start             # node build/index.js (stdio MCP server)
+yarn clean             # rm -rf build
+./deploy.sh            # publish to npm + register with MCP registry
+```
+
+`prepublishOnly` runs `yarn build` automatically — never publish without a fresh build.
+
+---
+
+## CRITICAL: Version sync invariant
+
+Three places must always carry the same version string, or `deploy.sh` and the MCP registry will reject the publish:
+
+1. `package.json` → `version`
+2. `server.json` → `version` (top-level)
+3. `server.json` → `packages[0].version`
+
+When bumping the version, update all three in one commit. Don't ship one without the others.
+
+---
+
+## Architecture
+
+### Stdio MCP server
+- `src/index.ts` — `Server` from `@modelcontextprotocol/sdk`. Registers tools, prompts, resources. Connects to Muninn via `connectToMuninn()` before accepting MCP traffic.
+- Stdout is reserved for MCP protocol — **all logging must go to stderr** (`console.error`). A stray `console.log` will corrupt the MCP transport and the client will disconnect.
+
+### Tool layer (`src/tools/`)
+One file per tool. Each tool:
+1. Validates input with a Zod schema.
+2. Calls `muninn-ipc.ts` to forward the request to Muninn.
+3. Returns the result as the tool's `content` payload.
+
+Tools are aggregated in `src/tools/index.ts` via `allTools` and individual exports — both must be updated when adding or removing a tool.
+
+### IPC layer (`src/services/muninn-ipc.ts`)
+Single client — owns the socket connection lifecycle, message framing, and `ensureRepo(repoPath)` which the dispatcher in `index.ts` calls before any tool that targets a repository.
+
+### Other surfaces
+- `src/prompts/` — MCP prompts (e.g. `intentFirstWorkflowPrompt`).
+- `src/resources/` — MCP resources (e.g. `kawa://intent/active`).
+- `src/extract-trigger.ts` + `bin: kawacode-extract-trigger` — CLI helper (separate binary).
+- `bin: kawacode-capture-thoughts` → `build/capture-thoughts.js` (separate binary).
+
+---
+
+## Adding a new tool
+
+1. Create `src/tools/<tool-name>.ts` with a Zod input schema, a handler function, and an `export const <toolName>Tool = { name, description, inputSchema }`.
+2. Add a case to the dispatcher switch in `src/index.ts`.
+3. Re-export the handler and tool from `src/tools/index.ts`.
+4. Add an entry to `LLM_RULES.md` — it's the public reference clients pull from.
+5. If the tool ships any user-facing description text that explains an algorithm (e.g. evolve_decisions), keep it generic — the algorithm itself is a trade secret living in Muninn.
+
+---
+
+## Naming conventions
+
+Public surface uses **"Kawa Code"** (the product). Internal IPC peer is referred to as **Muninn** in source code and comments — that name is acceptable here because the file is repository-local. Do not leak `Muninn` into tool descriptions or error messages shown to LLMs/users.
+
+---
+
+## Gotchas
+
+- **No console.log on stdout** — corrupts MCP protocol. Always `console.error`.
+- **Muninn must be running** for tools to succeed. The server still starts if Muninn is unavailable; tool calls will return structured `{ success: false, error }` payloads (see `index.ts:160-178`). Do not throw `McpError` for IPC failures — surface them as tool output so the LLM can recover.
+- **Trade-secret boundary**: tool *descriptions* are public (registry-indexed). Algorithm details (decision evolution graph, semantic commit grouping, anchor computation) belong in Muninn, never inlined here.
+- **`mcp-registry-key.pem`** is git-ignored and used by `deploy.sh` to sign registry submissions. If it's missing, deploys will fail — recover from a backup, do not regenerate.
+- **MCP SDK quirks**: the dispatcher converts Zod schemas to JSON Schema by hand (`getZodSchema` in `index.ts`). Adding new Zod types (e.g. `ZodUnion`, `ZodLiteral`) requires extending that function or the LLM client will see `type: 'string'` for everything.
+
+---
+
+## Reference
+
+- [LLM_RULES.md](./LLM_RULES.md) — public setup guide for end-users wiring this MCP into their projects. Update it when tools change.
+- [CLAUDE.md.example](./CLAUDE.md.example) — template `CLAUDE.md` shipped to consumers; mirrors the setup flow in `LLM_RULES.md`.
+- [server.json](./server.json) — MCP registry manifest.
