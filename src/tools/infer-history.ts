@@ -3,7 +3,8 @@ import { request } from '../services/muninn-ipc.js'
 
 export const inferHistorySchema = z.object({
   repoPath: z.string().describe('Local path to the repository root'),
-  commits: z.number().optional().describe('Number of recent commits to analyze. If omitted, the server resumes from the last commit infer_history processed for this repo (or falls back to 50 on first run).'),
+  commits: z.number().optional().describe('Number of recent commits to analyze. If omitted, the server resumes from the last commit infer_history processed for this repo (or falls back to 50 on first run). Mutually exclusive with `commitRange`.'),
+  commitRange: z.string().optional().describe('Optional git revspec to process a specific commit range instead of the N most recent (e.g. "sha1..sha2", "branch1..branch2", "sha1^!" for a single commit). Useful for recovering from dropped batches or targeted backfills. Mutually exclusive with `commits`.'),
   contextIssues: z.boolean().optional().default(false).describe('Include context issues from commit date range (requires gh/glab CLI)'),
   model: z.string().optional().default('claude-sonnet-4-20250514').describe('Anthropic model to use (default: claude-sonnet-4-20250514)'),
   maxStories: z.number().optional().default(0).describe('Maximum number of stories to analyze in this run (0 = unlimited).'),
@@ -65,6 +66,12 @@ function describeAutoMode(am: AutoModeResolution): string {
 }
 
 export async function inferHistory(input: InferHistoryInput): Promise<InferHistoryResponse> {
+  // commits and commitRange are mutually exclusive. Catch in the MCP layer so
+  // the user gets a clear error instead of an opaque muninn-side rejection.
+  if (input.commits !== undefined && input.commitRange !== undefined) {
+    throw new Error('infer_history: `commits` and `commitRange` are mutually exclusive — set only one.')
+  }
+
   // Only forward `commits` when the caller explicitly provided one, so the
   // server can fall back to last_inferred_sha tracking otherwise.
   const inferencePayload: Record<string, any> = {
@@ -73,6 +80,7 @@ export async function inferHistory(input: InferHistoryInput): Promise<InferHisto
     model: input.model,
   }
   if (input.commits !== undefined) inferencePayload.commits = input.commits
+  if (input.commitRange !== undefined) inferencePayload.commitRange = input.commitRange
 
   if (input.estimateOnly) {
     // Walking git history on deep repos (e.g., zed at 37k commits) exceeds
@@ -113,6 +121,7 @@ export async function inferHistory(input: InferHistoryInput): Promise<InferHisto
     allowCommitSplitting: input.allowCommitSplitting,
   }
   if (input.commits !== undefined) runPayload.commits = input.commits
+  if (input.commitRange !== undefined) runPayload.commitRange = input.commitRange
 
   const res = await request('inference', 'run', runPayload)
   const autoModeNote = res.autoMode ? describeAutoMode(res.autoMode) : ''
@@ -135,6 +144,7 @@ When to use:
 Inputs of note:
 - \`estimateOnly\` (default true): returns a token/cost estimate without running. Call with \`estimateOnly: true\` first to preview cost, then re-call with \`estimateOnly: false\` to run.
 - \`commits\` (optional): how many recent commits to analyze. Omit to resume from where the last run stopped (or fall back to a sensible default on first run).
+- \`commitRange\` (optional): git revspec selecting a specific window — \`"sha1..sha2"\`, \`"branch1..branch2"\`, \`"sha1^!"\` for a single commit. Mutually exclusive with \`commits\`. Useful for recovering from dropped batches or backfilling specific PRs / branches without re-running the full history.
 - \`contextIssues\`: include PR/MR descriptions and issue discussions when an authenticated forge CLI (\`gh\` or \`glab\`) is available; auto-skipped otherwise.
 - \`allowCommitSplitting\`: enable when commit history is messy and a single commit may cover unrelated changes.
 - \`model\`, \`maxStories\`: Anthropic model and per-run cap.
