@@ -30,7 +30,7 @@ yarn build             # tsc → build/
 yarn dev               # tsc --watch
 yarn start             # node build/index.js (stdio MCP server)
 yarn clean             # rm -rf build
-./deploy.sh            # publish to npm + register with MCP registry
+./deploy.sh            # publish to npm + MCP Registry (see ## Deploy below)
 ```
 
 `prepublishOnly` runs `yarn build` automatically — never publish without a fresh build.
@@ -46,6 +46,45 @@ Three places must always carry the same version string, or `deploy.sh` and the M
 3. `server.json` → `packages[0].version`
 
 When bumping the version, update all three in one commit. Don't ship one without the others.
+
+---
+
+## Deploy
+
+`./deploy.sh [patch|minor|major]` ships a new version to **both** npm and the [MCP Registry](https://registry.modelcontextprotocol.io). Defaults to a patch bump.
+
+### Pipeline (in order)
+
+1. **Pre-flight** — fail if `mcp-registry-key.pem` or the `mcp-publisher` CLI is missing.
+2. **Build** — clean + `tsc`.
+3. **Bump** — `npm version <bump> --no-git-tag-version`.
+4. **Sync** — `server.json` top-level `version` and `packages[0].version` updated to match `package.json` (see version sync invariant above).
+5. **Validate** — `mcp-publisher validate` checks `server.json` against the live registry schema. Catches errors before any publish lands. Note the registry caps `description` at **100 chars**.
+6. **npm publish** — `--access public`.
+7. **Registry auth** — DNS-method, Ed25519, against `kawacode.ai`. The script extracts the raw 32-byte private key from the PEM with:
+   ```bash
+   openssl pkey -in mcp-registry-key.pem -outform DER | tail -c 32 | xxd -p -c 64
+   ```
+   That hex string is passed to `mcp-publisher login dns --domain kawacode.ai --private-key <hex> --algorithm ed25519`.
+8. **Registry publish** — `mcp-publisher publish` (reads `./server.json`).
+
+### Prerequisites (one-time setup)
+
+- **`mcp-publisher`** installed: `brew install mcp-publisher`.
+- **`mcp-registry-key.pem`** present in repo root. Git-ignored. Recover from backup if missing — do **not** regenerate; the public key is registered in DNS against `kawacode.ai`.
+- **DNS TXT record** on `kawacode.ai` paired with the public key. If missing or rotated, registry login fails at step 7 — `mcp-publisher login dns` reports the expected record content on first failure.
+
+### Recovery from half-published state
+
+If npm publish succeeds but registry publish fails (network, expired DNS record, etc.), npm has the new version while the registry doesn't. Fix the underlying cause, then re-run **only** the auth + publish steps manually:
+
+```bash
+PRIVATE_KEY_HEX=$(openssl pkey -in mcp-registry-key.pem -outform DER | tail -c 32 | xxd -p -c 64)
+mcp-publisher login dns --domain kawacode.ai --private-key "$PRIVATE_KEY_HEX" --algorithm ed25519
+mcp-publisher publish
+```
+
+Do **not** re-run `./deploy.sh` — `npm publish` rejects re-publishing the same version, and `npm version` would bump again unnecessarily.
 
 ---
 
