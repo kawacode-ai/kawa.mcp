@@ -1,28 +1,13 @@
-# kawa.mcp
+# Kawa Code MCP
 
-Reference implementation of the Kawa Code MCP protocol.
+> Team-aware memory for AI coding assistants. Track intent, record decisions, and see when a teammate is editing the same code — in real time, before commit.
 
-## Overview
+`@kawacode/mcp` is the official [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for [Kawa Code](https://kawacode.ai). It lets Claude Code, Cursor, and any MCP-compatible AI assistant:
 
-The Kawa Code MCP server provides the communication layer used by
-Kawa Code to record and align development intent between
-developers and AI systems.
-
-It enables:
-
-• Persistent AI reasoning context
-• Intent tracking during development workflows
-• Alignment between human and AI decisions over time
-
-This repository contains the reference implementation of the
-Kawa MCP server used by Kawa Code tools.
-
-This MCP server enables AI coding assistants to understand what you're working on and maintain context across sessions. It connects to the Kawa Code desktop application to provide:
-
-- **Intent tracking**: Create and manage development intents with decision history
-- **Team collaboration**: See what teammates are working on, detect conflicts
-- **Decision recording**: Track architectural decisions and trade-offs with constraint validation
-- **Code block assignment**: Associate code changes with intents for better commit history
+- **Remember what you're working on** across sessions, branches, and machines — no more re-explaining the architecture every morning.
+- **Surface team conflicts before they happen** — know when a teammate is editing the same file or function in their working copy *right now*, before either of you commits.
+- **Capture architectural decisions with their reasoning** — future you (and future AI sessions) inherit the team's accumulated context instead of relitigating choices.
+- **Link commits to intent automatically** — every commit gets the *why* attached, not just the diff.
 
 ## Prerequisites
 
@@ -79,13 +64,13 @@ The MCP server works together with the Kawa Code application, Kawa Code IDE exte
 
 ## Key Features
 
-- **Context Persistence**: Never lose track of what you were working on across AI sessions
-- **Smart Context Retrieval**: Relevance-based context loading - only fetch what's needed for the current task
-- **Zero-Knowledge Encryption**: Code blocks encrypted client-side before cloud sync, API cannot decrypt
-- **Team Conflict Detection**: Know when teammates are working on the same files/lines
-- **Decision Tracking**: Record architectural decisions with constraint validation and conflict detection
-- **Commit Integration**: Link all code changes to intent context for better git history
-- **Cross-Platform**: Works with Claude Code and Cursor AI via MCP protocol
+- **Real-time team conflict detection** — see when a teammate is editing the same files or lines in their working copy, *before either of you commits*. Most version-control tooling shows you this after the merge conflict; Kawa shows you before.
+- **Cross-session AI memory** — your AI assistant picks up where it left off across days, branches, and machines. No re-explaining the architecture every morning.
+- **Decision history with reasoning** — record forks, trade-offs, and abandoned approaches with their *why*. Future sessions and teammates inherit the context instead of re-deriving it.
+- **Commit ↔ intent linkage** — every commit is automatically associated with the intent that drove it. `git log` shows what changed; Kawa shows why.
+- **Smart context retrieval** — relevance-based loading; only what the current task needs.
+- **Zero-knowledge encryption** — code blocks encrypted client-side before sync. The Kawa cloud cannot decrypt your team's code.
+- **Cross-platform** — works with Claude Code, Cursor, and any MCP-compatible AI assistant.
 
 ## Development
 

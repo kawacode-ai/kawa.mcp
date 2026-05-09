@@ -1,7 +1,7 @@
 {
   "name": "@kawacode/mcp",
   "version": "5.2.2",
-  "description": "MCP server for Kawa Code intent integration with Claude Code and Cursor AI",
+  "description": "Team-aware memory for Claude Code, Cursor, and other AI coding assistants — intent tracking, decision history, real-time team conflict detection.",
   "main": "build/index.js",
   "bin": {
     "kawacode-mcp": "build/index.js",

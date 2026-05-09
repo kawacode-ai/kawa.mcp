@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "ai.kawacode/mcp",
-  "title": "Kawa Code MCP",
-  "description": "Intent tracking, decision recording, and team coordination for AI coding assistants",
+  "title": "Kawa Code",
+  "description": "Team-aware memory: intent, decisions, real-time conflicts for AI coding assistants.",
   "websiteUrl": "https://kawacode.ai",
   "repository": {
     "url": "https://github.com/codeawareness/kawa.mcp",
