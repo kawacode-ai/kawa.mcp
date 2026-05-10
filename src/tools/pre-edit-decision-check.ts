@@ -7,6 +7,7 @@ import {
   type DecisionForSupersedes,
 } from '../pre_edit_check/supersedes.js'
 import { getOverrides } from '../pre_edit_check/cache.js'
+import { logFire } from '../pre_edit_check/telemetry.js'
 import type {
   DecisionRecord,
   DecisionType,
@@ -219,6 +220,25 @@ export async function preEditDecisionCheck(
   const symbolPayload = symbolRes.status === 'fulfilled' ? symbolRes.value : null
   const enclosingSymbol = normalizeEnclosingSymbol(symbolPayload)
   const language = symbolPayload?.language as string | undefined
+
+  // Phase 4 telemetry — local JSONL only, best-effort. Logs every fire,
+  // including silent ones, so false-positive rate can be measured.
+  logFire({
+    agent: 'mcp',
+    repoPath: input.repoPath,
+    filePath: input.filePath,
+    startLine: input.startLine,
+    endLine: input.endLine,
+    tier: result.tier,
+    recommendation: result.recommendation,
+    enclosingSymbol: enclosingSymbol?.name ?? null,
+    surfacedDecisions: (result.decisions ?? []).map(d => ({
+      decisionId: d.decisionId,
+      type: d.type,
+    })),
+    filtered: result.filtered,
+    sessionToken: input.sessionToken,
+  })
 
   return {
     triggered: result.triggered,

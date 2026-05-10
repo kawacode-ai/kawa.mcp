@@ -93,6 +93,14 @@ Override paths when blocked:
 
 Disable the hook for a session with `KAWA_PRE_EDIT_CHECK=off`.
 
+### Local telemetry (logs)
+
+Every pre-edit check fire (and force-override) appends a JSON line to a daily-rotated file at `~/.kawa-code/logs/pre-edit-decision-check-YYYY-MM-DD.jsonl`. Logs are **local only** — nothing leaves your machine. The defaults keep the last 30 days, capped at 100 MB total (oldest files dropped first).
+
+Each line records what fired, why, and what was filtered out — useful for tuning the recommendation thresholds and spotting false positives over time.
+
+Disable telemetry with `KAWA_PRE_EDIT_TELEMETRY=off`.
+
 ## Key Features
 
 - **Real-time team conflict detection** — see when a teammate is editing the same files or lines in their working copy, *before either of you commits*. Most version-control tooling shows you this after the merge conflict; Kawa shows you before.

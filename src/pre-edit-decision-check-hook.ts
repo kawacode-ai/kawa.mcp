@@ -30,11 +30,14 @@ import { readFileSync } from 'node:fs'
 import { connectToMuninn, request, disconnect } from './services/muninn-ipc.js'
 import { evaluate } from './pre_edit_check/evaluator.js'
 import { computeSupersedes, type DecisionForSupersedes } from './pre_edit_check/supersedes.js'
+import { logFire, logOverride } from './pre_edit_check/telemetry.js'
 import type {
   DecisionRecord,
   DecisionType,
   EvaluatorInput,
   OverlappingIntent,
+  FilteredDiagnostic,
+  Tier,
 } from './pre_edit_check/types.js'
 
 interface HookPayload {
@@ -204,8 +207,10 @@ function resolveTarget(payload: HookPayload): ResolvedTarget | null {
 
 interface CheckResult {
   recommendation: 'proceed' | 'review' | 'investigate-upstream'
+  tier: Tier | null
   intents: OverlappingIntent[]
   decisions: DecisionRecord[]
+  filtered: FilteredDiagnostic
   enclosingSymbolName?: string
 }
 
@@ -302,8 +307,10 @@ async function runCheck(
 
   return {
     recommendation: result.recommendation,
+    tier: result.tier,
     intents: result.intents ?? [],
     decisions: result.decisions ?? [],
+    filtered: result.filtered,
     enclosingSymbolName,
   }
 }
@@ -368,12 +375,34 @@ async function main(): Promise<void> {
     process.exit(0)
   }
 
+  const surfacedDecisions = result.decisions.map(d => ({
+    decisionId: d.decisionId,
+    type: d.type,
+  }))
+
+  function logHookFire(outcome: 'block' | 'advisory' | 'silent'): void {
+    logFire({
+      agent: 'hook',
+      repoPath: target!.repoPath,
+      filePath: target!.filePath,
+      startLine: target!.startLine,
+      endLine: target!.endLine,
+      tier: result.tier,
+      recommendation: result.recommendation,
+      enclosingSymbol: result.enclosingSymbolName ?? null,
+      surfacedDecisions,
+      filtered: result.filtered,
+      hookOutcome: outcome,
+      sessionToken,
+    })
+  }
+
   if (result.recommendation === 'investigate-upstream') {
     const force = payload.tool_input?.force === true
     if (force) {
       // Acknowledge the surfaced decisions for this session, then allow.
+      const ids = result.decisions.map(d => d.decisionId).filter(Boolean)
       try {
-        const ids = result.decisions.map(d => d.decisionId).filter(Boolean)
         if (ids.length > 0) {
           await request('pre-edit-cache', 'add', {
             sessionToken,
@@ -383,12 +412,20 @@ async function main(): Promise<void> {
       } catch {
         /* best-effort — even if the cache add fails, we don't block */
       }
+      logHookFire('advisory')
+      logOverride({
+        agent: 'hook',
+        kind: 'force',
+        sessionToken,
+        decisionIds: ids,
+      })
       disconnect()
       process.exit(0)
     }
     // Block: exit 2, write reason to stderr (Claude Code surfaces to user).
     const message = formatBlockMessage(target, result)
     process.stderr.write(message + '\n')
+    logHookFire('block')
     disconnect()
     process.exit(2)
   }
@@ -403,11 +440,13 @@ async function main(): Promise<void> {
       },
     }
     process.stdout.write(JSON.stringify(out) + '\n')
+    logHookFire('advisory')
     disconnect()
     process.exit(0)
   }
 
   // Silent: proceed.
+  logHookFire('silent')
   disconnect()
   process.exit(0)
 }

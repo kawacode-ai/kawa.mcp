@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { addOverrides } from '../pre_edit_check/cache.js'
+import { logOverride } from '../pre_edit_check/telemetry.js'
 
 export const preEditAcknowledgeSchema = z.object({
   decisionIds: z
@@ -24,6 +25,12 @@ export async function preEditAcknowledge(
   input: PreEditAcknowledgeInput,
 ): Promise<PreEditAcknowledgeResponse> {
   const { added, total } = await addOverrides(input.decisionIds, input.sessionToken)
+  logOverride({
+    agent: 'mcp',
+    kind: 'force',
+    sessionToken: input.sessionToken,
+    decisionIds: input.decisionIds,
+  })
   return {
     acknowledged: added,
     cacheSize: total,
