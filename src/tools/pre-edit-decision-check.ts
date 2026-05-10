@@ -6,6 +6,7 @@ import {
   computeSupersedes,
   type DecisionForSupersedes,
 } from '../pre_edit_check/supersedes.js'
+import { getOverrides } from '../pre_edit_check/cache.js'
 import type {
   DecisionRecord,
   DecisionType,
@@ -206,9 +207,7 @@ export async function preEditDecisionCheck(
     tier1bDecisions,
     activeIntentSupersedes,
     repoScopedSupersedes,
-    // Phase 2 ships the actual session force-override cache; for Phase 1 the
-    // tool runs with no in-process overrides. Hooks fire fresh each time.
-    sessionForceOverrides: new Set<string>(),
+    sessionForceOverrides: getOverrides(),
   }
 
   const result = evaluate(evaluatorInput)

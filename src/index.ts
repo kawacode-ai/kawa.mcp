@@ -34,7 +34,8 @@ import {
   detectIntentConflicts,
   inferHistory,
   evolveDecisions,
-  preEditDecisionCheck
+  preEditDecisionCheck,
+  preEditAcknowledge
 } from './tools/index.js'
 import { prompts, intentFirstWorkflowPrompt } from './prompts/intent-first-workflow.js'
 import { resources, readActiveIntentResource } from './resources/active-intent.js'
@@ -145,6 +146,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break
       case 'pre_edit_decision_check':
         result = await preEditDecisionCheck(args as any)
+        break
+      case 'pre_edit_acknowledge':
+        result = await preEditAcknowledge(args as any)
         break
       default:
         throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`)

@@ -16,6 +16,7 @@ import { detectIntentConflictsTool, detectIntentConflicts, detectIntentConflicts
 import { inferHistoryTool, inferHistory, inferHistorySchema } from './infer-history.js'
 import { evolveDecisionsTool, evolveDecisions, evolveDecisionsSchema } from './evolve-decisions.js'
 import { preEditDecisionCheckTool, preEditDecisionCheck, preEditDecisionCheckSchema } from './pre-edit-decision-check.js'
+import { preEditAcknowledgeTool, preEditAcknowledge, preEditAcknowledgeSchema } from './pre-edit-acknowledge.js'
 
 // Re-export everything
 export {
@@ -79,7 +80,10 @@ export {
   // Pre-edit decision check
   preEditDecisionCheckTool,
   preEditDecisionCheck,
-  preEditDecisionCheckSchema
+  preEditDecisionCheckSchema,
+  preEditAcknowledgeTool,
+  preEditAcknowledge,
+  preEditAcknowledgeSchema
 }
 
 export const allTools = [
@@ -107,5 +111,6 @@ export const allTools = [
   inferHistoryTool,
   evolveDecisionsTool,
   // Pre-edit decision check
-  preEditDecisionCheckTool
+  preEditDecisionCheckTool,
+  preEditAcknowledgeTool
 ]
