@@ -62,6 +62,37 @@ For the project you want Kawa Code to run on, create a `.mcp.json` file in your 
 
 The MCP server works together with the Kawa Code application, Kawa Code IDE extensions, and AI code generators such as Cursor AI and Claude Code.
 
+## Pre-edit decision check (Claude Code hook)
+
+Optional. When the agent is about to edit code that has prior recorded reasoning attached (an overlapping intent's blocks, or a constraint with the file in `relatedFiles`), the hook surfaces it before the Edit fires. Recommendation maps to action: silent (proceed), advisory context injected (review), or blocked with stderr message (`investigate-upstream`).
+
+Wire it as a Claude Code `PreToolUse` hook in your `~/.claude/settings.json` or project `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          { "type": "command", "command": "npx -y @kawacode/mcp kawacode-pre-edit-decision-check" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Override paths when blocked:
+
+- **Persistent (recommended):** record a fork decision that supersedes the existing one and retry the Edit.
+  ```
+  record_decision(type: "fork", supersedes: ["<surfaced-decision-id>"], rationale: "...")
+  ```
+- **One-off escape hatch:** add `force: true` to the Edit tool args. The hook acks the surfaced decisions in the session cache and allows the edit. Cache resets when the Kawa Code daemon restarts.
+
+Disable the hook for a session with `KAWA_PRE_EDIT_CHECK=off`.
+
 ## Key Features
 
 - **Real-time team conflict detection** — see when a teammate is editing the same files or lines in their working copy, *before either of you commits*. Most version-control tooling shows you this after the merge conflict; Kawa shows you before.

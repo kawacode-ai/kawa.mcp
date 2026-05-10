@@ -1,12 +1,16 @@
 import { z } from 'zod'
 
-import { addOverrides, size as cacheSize } from '../pre_edit_check/cache.js'
+import { addOverrides } from '../pre_edit_check/cache.js'
 
 export const preEditAcknowledgeSchema = z.object({
   decisionIds: z
     .array(z.string().min(1))
     .min(1)
     .describe('Decision IDs to acknowledge (mark as overridden for the rest of this session)'),
+  sessionToken: z
+    .string()
+    .optional()
+    .describe('Session scope for the force-override cache. Should match the sessionToken passed to pre_edit_decision_check. Defaults to the MCP server\'s SESSION_ID.'),
 })
 
 export type PreEditAcknowledgeInput = z.infer<typeof preEditAcknowledgeSchema>
@@ -19,10 +23,10 @@ export interface PreEditAcknowledgeResponse {
 export async function preEditAcknowledge(
   input: PreEditAcknowledgeInput,
 ): Promise<PreEditAcknowledgeResponse> {
-  const acknowledged = addOverrides(input.decisionIds)
+  const { added, total } = await addOverrides(input.decisionIds, input.sessionToken)
   return {
-    acknowledged,
-    cacheSize: cacheSize(),
+    acknowledged: added,
+    cacheSize: total,
   }
 }
 

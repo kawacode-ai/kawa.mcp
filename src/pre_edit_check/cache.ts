@@ -1,59 +1,71 @@
 /**
- * Session-scoped force-override cache (kawa.dev-doc/PRE_EDIT_DECISION_CHECK.md
- * §Phase 2 + §1).
+ * Session force-override cache — thin async wrappers over Muninn IPC
+ * (kawa.dev-doc/PRE_EDIT_DECISION_CHECK.md §Phase 3).
  *
- * The third filter source in the evaluator pipeline. When the agent passes
- * `force: true` on an Edit tool call to bypass a block, Phase 3's PreToolUse
- * hook calls `pre_edit_acknowledge` — which adds the surfaced decision IDs
- * to this cache. Subsequent pre-edit fires within the same session filter
- * those IDs out.
+ * The cache itself lives in Muninn (PreEditCacheService, gated behind the
+ * `pre-edit-cache` IPC domain). Both the kawa.mcp MCP server and the
+ * PreToolUse hook process talk to the same Muninn instance, so either
+ * caller's writes are visible to the other.
  *
- * Module-level state: the MCP server runs as one process per agent session
- * (see `SESSION_ID` in services/muninn-ipc.ts — generated once at process
- * start). One process == one session, so a single module-level Set is the
- * cache; it dies when the process dies, which is exactly the "resets at
- * session boundaries" semantic the plan calls for.
+ * Phase 2 originally placed this in MCP-server-process memory, which broke
+ * the hook flow (a sibling process can't see in-process state). The user
+ * chose Muninn-daemon-backing during Phase 3 readiness.
  *
- * Persistent override across sessions is via record_decision(supersedes=...),
- * not this cache.
+ * `sessionToken` is opaque — callers pick their own scope. The hook uses
+ * the Claude Code session_id from its payload; direct MCP callers fall
+ * back to `DEFAULT_SESSION_TOKEN` (kawa.mcp's process-scoped SESSION_ID)
+ * when they don't pass one in.
  */
 
-const overrideCache: Set<string> = new Set()
+import { request, SESSION_ID } from '../services/muninn-ipc.js'
 
-/**
- * Add decision IDs to the override cache. Idempotent — duplicate adds are
- * silent dedups. Returns the count of NEW IDs added (helpful for telemetry
- * and the acknowledge tool's response).
- */
-export function addOverrides(ids: readonly string[]): number {
-  let added = 0
-  for (const id of ids) {
-    if (!overrideCache.has(id)) {
-      overrideCache.add(id)
-      added += 1
-    }
+/** Default session token for callers that don't supply one. Tied to the
+ *  MCP server's process lifetime — fresh each MCP server boot. */
+export const DEFAULT_SESSION_TOKEN = SESSION_ID
+
+export async function getOverrides(sessionToken: string = DEFAULT_SESSION_TOKEN): Promise<Set<string>> {
+  try {
+    const res = await request('pre-edit-cache', 'get', { sessionToken })
+    const ids: string[] = Array.isArray(res?.ids) ? res.ids : []
+    return new Set(ids)
+  } catch {
+    // If Muninn is unreachable, surface fewer results rather than crashing
+    // the pre-edit check — degrade gracefully (matches the Promise.allSettled
+    // pattern in pre-edit-decision-check.ts).
+    return new Set()
   }
-  return added
 }
 
-export function hasOverride(id: string): boolean {
-  return overrideCache.has(id)
+export async function addOverrides(
+  ids: string[],
+  sessionToken: string = DEFAULT_SESSION_TOKEN,
+): Promise<{ added: number; total: number }> {
+  if (ids.length === 0) {
+    const total = await size(sessionToken)
+    return { added: 0, total }
+  }
+  const res = await request('pre-edit-cache', 'add', {
+    sessionToken,
+    decisionIds: ids,
+  })
+  return {
+    added: typeof res?.added === 'number' ? res.added : 0,
+    total: typeof res?.total === 'number' ? res.total : 0,
+  }
 }
 
-/**
- * Returns the cache contents as a ReadonlySet. The evaluator's
- * `sessionForceOverrides` input is typed as ReadonlySet<string>, so this
- * is the natural shape — no copy needed.
- */
-export function getOverrides(): ReadonlySet<string> {
-  return overrideCache
+export async function size(sessionToken: string = DEFAULT_SESSION_TOKEN): Promise<number> {
+  const overrides = await getOverrides(sessionToken)
+  return overrides.size
 }
 
-export function size(): number {
-  return overrideCache.size
-}
-
-/** Test-only helper — clears the cache. Production code should not call this. */
-export function clearOverrides(): void {
-  overrideCache.clear()
+export async function clearOverrides(
+  sessionToken: string = DEFAULT_SESSION_TOKEN,
+): Promise<boolean> {
+  try {
+    const res = await request('pre-edit-cache', 'clear', { sessionToken })
+    return Boolean(res?.cleared)
+  } catch {
+    return false
+  }
 }

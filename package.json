@@ -6,7 +6,8 @@
   "bin": {
     "kawacode-mcp": "build/index.js",
     "kawacode-capture-thoughts": "build/capture-thoughts.js",
-    "kawacode-extract-trigger": "build/extract-trigger.js"
+    "kawacode-extract-trigger": "build/extract-trigger.js",
+    "kawacode-pre-edit-decision-check": "build/pre-edit-decision-check-hook.js"
   },
   "type": "module",
   "license": "SEE LICENSE IN LICENSE",

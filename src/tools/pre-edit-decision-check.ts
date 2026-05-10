@@ -40,6 +40,10 @@ export const preEditDecisionCheckSchema = z.object({
     .string()
     .optional()
     .describe('Active intent ID for supersedes scoping. Auto-detected via intent:get-active when omitted.'),
+  sessionToken: z
+    .string()
+    .optional()
+    .describe('Session scope for the force-override cache. Defaults to the MCP server\'s SESSION_ID; PreToolUse hook callers should pass Claude Code\'s session_id so writes from one process are visible to the other.'),
 })
 
 export type PreEditDecisionCheckInput = z.infer<typeof preEditDecisionCheckSchema>
@@ -207,7 +211,7 @@ export async function preEditDecisionCheck(
     tier1bDecisions,
     activeIntentSupersedes,
     repoScopedSupersedes,
-    sessionForceOverrides: getOverrides(),
+    sessionForceOverrides: await getOverrides(input.sessionToken),
   }
 
   const result = evaluate(evaluatorInput)
