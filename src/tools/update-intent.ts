@@ -75,6 +75,7 @@ export async function updateIntent(input: UpdateIntentInput): Promise<UpdateInte
 
   const res = await request('intent', 'update', {
     id: intentId,
+    repoOrigin: actualOrigin,
     updates,
   })
 
