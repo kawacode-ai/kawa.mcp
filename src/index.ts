@@ -26,6 +26,7 @@ import {
   listTeamIntents,
   getIntentChanges,
   completeIntent,
+  updateIntent,
   logWork,
   recordDecision,
   getSessionDecisions,
@@ -119,6 +120,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break
       case 'complete_intent':
         result = await completeIntent(args as any)
+        break
+      case 'update_intent':
+        result = await updateIntent(args as any)
         break
       case 'log_work':
         result = await logWork(args as any)

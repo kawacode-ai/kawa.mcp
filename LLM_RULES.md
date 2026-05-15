@@ -194,6 +194,7 @@ When uncommitted changes exist that weren't made under an active intent, infer i
 | `assign_blocks_to_intent` | Associate code changes with intent |
 | `get_intent_changes` | Get uncommitted changes summary |
 | `complete_intent` | Mark intent as committed/done/abandoned |
+| `update_intent` | Reformulate an intent's title, description, scope, or constraints as understanding evolves |
 | `list_team_intents` | See what teammates are working on |
 
 #### Decision Recording

@@ -7,6 +7,7 @@ import { getIntentsForLinesTool, getIntentsForLines, getIntentsForLinesSchema } 
 import { listTeamIntentsTool, listTeamIntents, listTeamIntentsSchema } from './list-team-intents.js'
 import { getIntentChangesTool, getIntentChanges, getIntentChangesSchema } from './get-intent-changes.js'
 import { completeIntentTool, completeIntent, completeIntentSchema } from './complete-intent.js'
+import { updateIntentTool, updateIntent, updateIntentSchema } from './update-intent.js'
 import { logWorkTool, logWork, logWorkSchema } from './log-work.js'
 import { recordDecisionTool, recordDecision, recordDecisionSchema } from './record-decision.js'
 import { getSessionDecisionsTool, getSessionDecisions, getSessionDecisionsSchema } from './get-session-decisions.js'
@@ -49,6 +50,9 @@ export {
   completeIntentTool,
   completeIntent,
   completeIntentSchema,
+  updateIntentTool,
+  updateIntent,
+  updateIntentSchema,
   // Lightweight logging
   logWorkTool,
   logWork,
@@ -98,6 +102,7 @@ export const allTools = [
   listTeamIntentsTool,
   getIntentChangesTool,
   completeIntentTool,
+  updateIntentTool,
   // Lightweight logging
   logWorkTool,
   // Decision recording tools
