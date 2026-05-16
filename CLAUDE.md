@@ -67,6 +67,8 @@ Use `--no-bump` when the version was already bumped in a prior commit — e.g. a
    ```bash
    openssl pkey -in mcp-registry-key.pem -outform DER | tail -c 32 | xxd -p -c 64
    ```
+   **Important**: macOS `/usr/bin/openssl` is LibreSSL and does not support Ed25519 — it will fail with `unsupported algorithm`. `deploy.sh` auto-detects a real OpenSSL (prefers `openssl@3` from Homebrew). For manual invocations, use the full path, e.g. `/opt/homebrew/opt/openssl@3/bin/openssl`.
+
    That hex string is passed to `mcp-publisher login dns --domain kawacode.ai --private-key <hex> --algorithm ed25519`.
 8. **Registry publish** — `mcp-publisher publish` (reads `./server.json`).
 
@@ -81,7 +83,8 @@ Use `--no-bump` when the version was already bumped in a prior commit — e.g. a
 If npm publish succeeds but registry publish fails (network, expired DNS record, etc.), npm has the new version while the registry doesn't. Fix the underlying cause, then re-run **only** the auth + publish steps manually:
 
 ```bash
-PRIVATE_KEY_HEX=$(openssl pkey -in mcp-registry-key.pem -outform DER | tail -c 32 | xxd -p -c 64)
+# Use Homebrew's openssl@3 — /usr/bin/openssl is LibreSSL and cannot read Ed25519.
+PRIVATE_KEY_HEX=$(/opt/homebrew/opt/openssl@3/bin/openssl pkey -in mcp-registry-key.pem -outform DER | tail -c 32 | xxd -p -c 64)
 mcp-publisher login dns --domain kawacode.ai --private-key "$PRIVATE_KEY_HEX" --algorithm ed25519
 mcp-publisher publish
 ```

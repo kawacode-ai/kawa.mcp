@@ -31,6 +31,27 @@ if ! command -v mcp-publisher >/dev/null 2>&1; then
   exit 1
 fi
 
+# macOS ships LibreSSL as /usr/bin/openssl, which does NOT support Ed25519.
+# Prefer a real OpenSSL (Homebrew) so the registry login step at the end can
+# extract the raw private key.
+OPENSSL_BIN=""
+for candidate in \
+  "$(command -v openssl3 2>/dev/null)" \
+  "/opt/homebrew/opt/openssl@3/bin/openssl" \
+  "/usr/local/opt/openssl@3/bin/openssl" \
+  "$(command -v openssl 2>/dev/null)"; do
+  [ -x "$candidate" ] || continue
+  if "$candidate" version 2>/dev/null | grep -qi '^OpenSSL'; then
+    OPENSSL_BIN="$candidate"
+    break
+  fi
+done
+if [ -z "$OPENSSL_BIN" ]; then
+  echo "ERROR: no OpenSSL (non-LibreSSL) found. macOS /usr/bin/openssl is LibreSSL and cannot read Ed25519 keys." >&2
+  echo "       Install with: brew install openssl@3" >&2
+  exit 1
+fi
+
 echo "==> Cleaning build directory"
 npm run clean
 
@@ -66,7 +87,7 @@ echo "==> Publishing to npm"
 npm publish --access public
 
 echo "==> Authenticating with MCP Registry (DNS, $DOMAIN)"
-PRIVATE_KEY_HEX=$(openssl pkey -in "$KEY_FILE" -outform DER | tail -c 32 | xxd -p -c 64)
+PRIVATE_KEY_HEX=$("$OPENSSL_BIN" pkey -in "$KEY_FILE" -outform DER | tail -c 32 | xxd -p -c 64)
 mcp-publisher login dns --domain "$DOMAIN" --private-key "$PRIVATE_KEY_HEX" --algorithm ed25519
 
 echo "==> Publishing to MCP Registry"
