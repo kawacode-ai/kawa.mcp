@@ -29,6 +29,7 @@ import { readFileSync } from 'node:fs'
 
 import { connectToMuninn, request, disconnect } from './services/muninn-ipc.js'
 import { resolveOrigin } from './tools/resolve-origin.js'
+import { resolvePaths } from './pre-edit/path-resolve.js'
 
 interface HookPayload {
   session_id?: string
@@ -105,15 +106,10 @@ function resolveTarget(payload: HookPayload): ResolvedTarget | null {
   const filePath = input.file_path
   if (!filePath) return null
 
-  let absolutePath = filePath
-  let relativePath = filePath
-  if (filePath.startsWith('/')) {
-    if (filePath.startsWith(cwd + '/')) {
-      relativePath = filePath.slice(cwd.length + 1)
-    }
-  } else {
-    absolutePath = `${cwd}/${filePath}`
-  }
+  // Cross-platform path resolution. Returns null for files outside the repo.
+  const resolved = resolvePaths(cwd, filePath)
+  if (!resolved) return null
+  const { absolutePath, relativePath } = resolved
 
   let fileContent: string
   try {
