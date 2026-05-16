@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { request } from '../services/muninn-ipc.js'
 import { resolveOrigin } from './resolve-origin.js'
+import { forkFieldsExtensions, extractForkFields } from './_fork-fields.js'
 
 export const listTeamIntentsSchema = z.object({
   repoOrigin: z.string().optional().describe('Git remote origin URL. Auto-detected from repoPath via git if not provided.'),
@@ -12,6 +13,7 @@ export const listTeamIntentsSchema = z.object({
   until: z.string().optional().describe('Filter intents updated before this ISO8601 date'),
   limit: z.number().optional().default(50).describe('Maximum number of intents to return (default: 50)'),
   offset: z.number().optional().default(0).describe('Number of intents to skip for pagination (default: 0)'),
+  ...forkFieldsExtensions,
 })
 
 export type ListTeamIntentsInput = z.infer<typeof listTeamIntentsSchema>
@@ -41,6 +43,7 @@ export async function listTeamIntents(input: ListTeamIntentsInput): Promise<List
   const res = await request('intent', 'list', {
     repoOrigin: actualOrigin,
     status: input.status,
+    ...extractForkFields(input),
   })
 
   let intents: TeamIntent[] = (res.intents || []).map((intent: any) => ({

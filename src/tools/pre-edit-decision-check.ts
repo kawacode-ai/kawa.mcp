@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { request } from '../services/muninn-ipc.js'
 import { resolveOrigin } from './resolve-origin.js'
+import { forkFieldsExtensions, extractForkFields } from './_fork-fields.js'
 import { evaluate } from '../pre_edit_check/evaluator.js'
 import {
   computeSupersedes,
@@ -45,6 +46,7 @@ export const preEditDecisionCheckSchema = z.object({
     .string()
     .optional()
     .describe('Session scope for the force-override cache. Defaults to the MCP server\'s SESSION_ID; PreToolUse hook callers should pass Claude Code\'s session_id so writes from one process are visible to the other.'),
+  ...forkFieldsExtensions,
 })
 
 export type PreEditDecisionCheckInput = z.infer<typeof preEditDecisionCheckSchema>
@@ -133,10 +135,11 @@ export async function preEditDecisionCheck(
   // useful for hooks that fire with stale-but-still-correct context (e.g.,
   // mid-session activate-intent races). Otherwise ask Muninn for the current
   // active intent. An empty string is acceptable (no active intent yet).
+  const forkFields = extractForkFields(input)
   let activeIntentId = input.intentId ?? ''
   if (activeIntentId.length === 0) {
     try {
-      const activeRes = await request('intent', 'get-active', { repoOrigin: origin })
+      const activeRes = await request('intent', 'get-active', { repoOrigin: origin, ...forkFields })
       activeIntentId = activeRes?.intent?.id || activeRes?.intentId || ''
     } catch {
       // No active intent is a normal state — fall through with empty id.
@@ -153,9 +156,10 @@ export async function preEditDecisionCheck(
       filePath: input.filePath,
       startLine: input.startLine,
       endLine: input.endLine,
+      ...forkFields,
     }),
-    request('decision', 'project-list', { repoOrigin: origin }),
-    request('decision', 'by-file', { repoOrigin: origin, filePath: input.filePath }),
+    request('decision', 'project-list', { repoOrigin: origin, ...forkFields }),
+    request('decision', 'by-file', { repoOrigin: origin, filePath: input.filePath, ...forkFields }),
     request('ast', 'get-enclosing-symbol', {
       repoPath: input.repoPath,
       filePath: input.filePath,

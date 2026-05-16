@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { request } from '../services/muninn-ipc.js'
 import { resolveOrigin } from './resolve-origin.js'
+import { forkFieldsExtensions, extractForkFields } from './_fork-fields.js'
 
 export const getRelevantContextSchema = z.object({
   repoOrigin: z.string().optional().describe('Git remote origin URL. Auto-detected from repoPath via git if not provided.'),
@@ -9,7 +10,8 @@ export const getRelevantContextSchema = z.object({
   activeFiles: z.array(z.string()).optional().describe('Files currently being discussed or recently opened'),
   maxIntents: z.number().optional().default(10).describe('Maximum number of intents to return'),
   maxDecisions: z.number().optional().default(10).describe('Maximum number of decisions to return'),
-  minRelevance: z.number().optional().default(0.3).describe('Minimum relevance score (0-1)')
+  minRelevance: z.number().optional().default(0.3).describe('Minimum relevance score (0-1)'),
+  ...forkFieldsExtensions,
 })
 
 export type GetRelevantContextInput = z.infer<typeof getRelevantContextSchema>
@@ -74,6 +76,7 @@ export async function getRelevantContext(input: GetRelevantContextInput): Promis
       maxIntents: input.maxIntents,
       maxDecisions: input.maxDecisions,
       minScore: input.minRelevance,
+      ...extractForkFields(input),
     })
   } catch (err: any) {
     const msg = err?.message || String(err)

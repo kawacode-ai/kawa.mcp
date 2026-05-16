@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { request } from '../services/muninn-ipc.js'
 import { resolveOrigin } from './resolve-origin.js'
+import { forkFieldsExtensions, extractForkFields } from './_fork-fields.js'
 
 const constraintViolationSchema = z.object({
   alternative: z.string().describe('The alternative that was rejected'),
@@ -31,6 +32,7 @@ export const recordDecisionSchema = z.object({
     .describe('Self-rated confidence in the decision. Meaningful only for extractor and infer_history sources — leave null for deliberate recordings.'),
   sourceThoughtIds: z.array(z.string()).optional()
     .describe('Thought-chain entry IDs this record was extracted from. Only set by the extractor path.'),
+  ...forkFieldsExtensions,
 })
 
 export type RecordDecisionInput = z.infer<typeof recordDecisionSchema>
@@ -59,6 +61,7 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
     source: input.source,
     confidence: input.confidence,
     sourceThoughtIds: input.sourceThoughtIds || [],
+    ...extractForkFields(input),
   })
 
   return {

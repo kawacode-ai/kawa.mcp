@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { request } from '../services/muninn-ipc.js'
 import { resolveOrigin } from './resolve-origin.js'
+import { forkFieldsExtensions, extractForkFields } from './_fork-fields.js'
 
 export const updateIntentSchema = z.object({
   repoOrigin: z.string().optional().describe('Git remote origin URL. Auto-detected from repoPath via git if not provided.'),
@@ -13,6 +14,7 @@ export const updateIntentSchema = z.object({
     type: z.enum(['repo', 'folder', 'files']),
     paths: z.array(z.string())
   }).optional().describe('Updated scope for the intent'),
+  ...forkFieldsExtensions,
 })
 
 export type UpdateIntentInput = z.infer<typeof updateIntentSchema>
@@ -28,10 +30,12 @@ export interface UpdateIntentResponse {
 export async function updateIntent(input: UpdateIntentInput): Promise<UpdateIntentResponse> {
   const actualOrigin = resolveOrigin(input.repoOrigin, input.repoPath)
 
+  const forkFields = extractForkFields(input)
+
   // Resolve the intent ID: use provided intentId, or look up the active intent
   let intentId = input.intentId
   if (!intentId) {
-    const activeRes = await request('intent', 'get-active', { repoOrigin: actualOrigin })
+    const activeRes = await request('intent', 'get-active', { repoOrigin: actualOrigin, ...forkFields })
     intentId = activeRes.intentId || activeRes.intent?.id || ''
     if (!intentId) {
       return {
@@ -77,6 +81,7 @@ export async function updateIntent(input: UpdateIntentInput): Promise<UpdateInte
     id: intentId,
     repoOrigin: actualOrigin,
     updates,
+    ...forkFields,
   })
 
   if (res.success === false) {

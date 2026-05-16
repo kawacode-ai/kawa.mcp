@@ -1,11 +1,13 @@
 import { z } from 'zod'
 import { request } from '../services/muninn-ipc.js'
 import { resolveOrigin } from './resolve-origin.js'
+import { forkFieldsExtensions, extractForkFields } from './_fork-fields.js'
 
 export const getIntentsForFileSchema = z.object({
   repoOrigin: z.string().optional().describe('Git remote origin URL. Auto-detected from repoPath via git if not provided.'),
   repoPath: z.string().describe('Local path to the repository root'),
-  filePath: z.string().describe('Path to the file (relative to repo root)')
+  filePath: z.string().describe('Path to the file (relative to repo root)'),
+  ...forkFieldsExtensions,
 })
 
 export type GetIntentsForFileInput = z.infer<typeof getIntentsForFileSchema>
@@ -42,6 +44,7 @@ export async function getIntentsForFile(input: GetIntentsForFileInput): Promise<
   const res = await request('intent-block', 'get-for-file', {
     repoOrigin: actualOrigin,
     filePath: input.filePath,
+    ...extractForkFields(input),
   })
 
   const intents: FileIntentInfo[] = (res.intents || []).map((intent: any) => ({

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { request } from '../services/muninn-ipc.js'
 import { resolveOrigin } from './resolve-origin.js'
+import { forkFieldsExtensions, extractForkFields } from './_fork-fields.js'
 
 export const createAndActivateIntentSchema = z.object({
   repoOrigin: z.string().optional().describe('Git remote origin URL. Auto-detected from repoPath via git if not provided.'),
@@ -10,6 +11,7 @@ export const createAndActivateIntentSchema = z.object({
   templateType: z.enum(['feature', 'refactor', 'exploration']).default('feature').describe('Type of work'),
   constraints: z.array(z.string()).optional().describe('Requirements or constraints for this work'),
   force: z.boolean().optional().default(false).describe('Bypass conflict detection. Set to true after the user has reviewed detected conflicts and chosen to proceed anyway.'),
+  ...forkFieldsExtensions,
 })
 
 export type CreateIntentInput = z.infer<typeof createAndActivateIntentSchema>
@@ -72,6 +74,7 @@ export async function createAndActivateIntent(input: CreateIntentInput): Promise
     constraints: input.constraints || [],
     scope: { type: 'repo', paths: [] },
     force: input.force || false,
+    ...extractForkFields(input),
   })
 
   // Pending-intent soft lock — surfaced before any API write per PRD §6.3.
@@ -136,6 +139,7 @@ export async function createAndActivateIntent(input: CreateIntentInput): Promise
     repoOrigin: actualOrigin,
     intentId,
     force: input.force || false,
+    ...extractForkFields(input),
   })
 
   // The set-active step has its own pending-intent soft-lock check (the lock

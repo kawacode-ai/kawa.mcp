@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { request } from '../services/muninn-ipc.js'
 import { resolveOrigin } from './resolve-origin.js'
+import { forkFieldsExtensions, extractForkFields } from './_fork-fields.js'
 
 export const completeIntentSchema = z.object({
   repoOrigin: z.string().optional().describe('Git remote origin URL. Auto-detected from repoPath via git if not provided.'),
@@ -9,7 +10,8 @@ export const completeIntentSchema = z.object({
   commitSha: z.string().optional().describe('The git commit SHA to associate with this intent (if already committed)'),
   status: z.enum(['committed', 'pushed', 'done', 'abandoned', 'superseded']).default('committed')
     .describe('The new status for the intent. Use "committed" after git commit, "done" when work is complete, "abandoned" to discard, "superseded" when another intent replaces this one.'),
-  supersededBy: z.string().optional().describe('Intent ID that supersedes this one. Required when status is "superseded".')
+  supersededBy: z.string().optional().describe('Intent ID that supersedes this one. Required when status is "superseded".'),
+  ...forkFieldsExtensions,
 })
 
 export type CompleteIntentInput = z.infer<typeof completeIntentSchema>
@@ -120,6 +122,7 @@ export async function completeIntent(input: CompleteIntentInput): Promise<Comple
     status: input.status,
     commitSha: input.commitSha,
     supersededBy: input.supersededBy,
+    ...extractForkFields(input),
   })
 
   const intentId = res.intentId || ''

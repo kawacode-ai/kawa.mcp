@@ -1,12 +1,14 @@
 import { z } from 'zod'
 import { request } from '../services/muninn-ipc.js'
 import { resolveOrigin } from './resolve-origin.js'
+import { forkFieldsExtensions, extractForkFields } from './_fork-fields.js'
 
 export const activateIntentSchema = z.object({
   repoOrigin: z.string().optional().describe('Git remote origin URL. Auto-detected from repoPath via git if not provided.'),
   repoPath: z.string().describe('Local path to the repository root'),
   intentId: z.string().describe('The cloud ID (preferred) or local UUID of the existing intent to activate.'),
   force: z.boolean().optional().default(false).describe('Bypass the per-repo active-intent lock. Set to true after the user has reviewed the lock conflict and chosen to take over.'),
+  ...forkFieldsExtensions,
 })
 
 export type ActivateIntentInput = z.infer<typeof activateIntentSchema>
@@ -49,6 +51,7 @@ export async function activateIntent(input: ActivateIntentInput): Promise<Activa
     repoOrigin: actualOrigin,
     intentId: input.intentId,
     force: input.force || false,
+    ...extractForkFields(input),
   })
 
   if (setRes.conflict === true && setRes.conflictType === 'active_intent_lock') {

@@ -1,10 +1,12 @@
 import { z } from 'zod'
 import { request } from '../services/muninn-ipc.js'
 import { resolveOrigin } from './resolve-origin.js'
+import { forkFieldsExtensions, extractForkFields } from './_fork-fields.js'
 
 export const getIntentChangesSchema = z.object({
   repoOrigin: z.string().optional().describe('Git remote origin URL. Auto-detected from repoPath via git if not provided.'),
-  repoPath: z.string().describe('Local path to the repository root')
+  repoPath: z.string().describe('Local path to the repository root'),
+  ...forkFieldsExtensions,
 })
 
 export type GetIntentChangesInput = z.infer<typeof getIntentChangesSchema>
@@ -38,6 +40,7 @@ export async function getIntentChanges(input: GetIntentChangesInput): Promise<In
   const res = await request('intent', 'get-changes', {
     repoOrigin: actualOrigin,
     repoPath: input.repoPath,
+    ...extractForkFields(input),
   })
 
   const modified: FileChange[] = (res.changes?.modified || res.modified || []).map((f: any) => ({

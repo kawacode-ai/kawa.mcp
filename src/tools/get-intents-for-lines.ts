@@ -1,13 +1,15 @@
 import { z } from 'zod'
 import { request } from '../services/muninn-ipc.js'
 import { resolveOrigin } from './resolve-origin.js'
+import { forkFieldsExtensions, extractForkFields } from './_fork-fields.js'
 
 export const getIntentsForLinesSchema = z.object({
   repoOrigin: z.string().optional().describe('Git remote origin URL. Auto-detected from repoPath via git if not provided.'),
   repoPath: z.string().describe('Local path to the repository root'),
   filePath: z.string().describe('Path to the file (relative to repo root)'),
   startLine: z.number().min(1).describe('Start line number (1-based)'),
-  endLine: z.number().min(1).describe('End line number (1-based, inclusive)')
+  endLine: z.number().min(1).describe('End line number (1-based, inclusive)'),
+  ...forkFieldsExtensions,
 })
 
 export type GetIntentsForLinesInput = z.infer<typeof getIntentsForLinesSchema>
@@ -44,6 +46,7 @@ export async function getIntentsForLines(input: GetIntentsForLinesInput): Promis
     filePath: input.filePath,
     startLine: input.startLine,
     endLine: input.endLine,
+    ...extractForkFields(input),
   })
 
   const overlappingIntents: LineRangeIntent[] = (res.intents || []).map((intent: any) => ({
