@@ -1,7 +1,16 @@
 import { z } from 'zod'
 
-import { addOverrides } from '../pre_edit_check/cache.js'
-import { logOverride } from '../pre_edit_check/telemetry.js'
+import { request, SESSION_ID } from '../services/muninn-ipc.js'
+import { forkFieldsExtensions } from './_fork-fields.js'
+
+/**
+ * Thin proxy to Muninn's `pre-edit-cache:add` handler.
+ *
+ * Pre-thinning, this tool wrapped a local cache.ts module that itself
+ * called the same Muninn IPC. Phase 3 of the kawa.mcp → kawa.muninn
+ * migration drops the wrapper. Telemetry now lives in Muninn too —
+ * the `pre-edit-cache:add` handler emits its own override event.
+ */
 
 export const preEditAcknowledgeSchema = z.object({
   decisionIds: z
@@ -12,6 +21,7 @@ export const preEditAcknowledgeSchema = z.object({
     .string()
     .optional()
     .describe('Session scope for the force-override cache. Should match the sessionToken passed to pre_edit_decision_check. Defaults to the MCP server\'s SESSION_ID.'),
+  ...forkFieldsExtensions,
 })
 
 export type PreEditAcknowledgeInput = z.infer<typeof preEditAcknowledgeSchema>
@@ -24,16 +34,14 @@ export interface PreEditAcknowledgeResponse {
 export async function preEditAcknowledge(
   input: PreEditAcknowledgeInput,
 ): Promise<PreEditAcknowledgeResponse> {
-  const { added, total } = await addOverrides(input.decisionIds, input.sessionToken)
-  logOverride({
-    agent: 'mcp',
-    kind: 'force',
-    sessionToken: input.sessionToken,
+  const sessionToken = input.sessionToken ?? SESSION_ID
+  const res = await request('pre-edit-cache', 'add', {
+    sessionToken,
     decisionIds: input.decisionIds,
   })
   return {
-    acknowledged: added,
-    cacheSize: total,
+    acknowledged: typeof res?.added === 'number' ? res.added : 0,
+    cacheSize: typeof res?.total === 'number' ? res.total : 0,
   }
 }
 

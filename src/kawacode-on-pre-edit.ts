@@ -1,0 +1,250 @@
+#!/usr/bin/env node
+/**
+ * kawacode-on-pre-edit — Claude Code PreToolUse hook dispatcher.
+ *
+ * Reads the PreToolUse hook payload from stdin (session_id, cwd, tool_name,
+ * tool_input). For Edit, resolves the touched line range from old_string
+ * against the file content on disk. For Write, targets the whole current
+ * file (skipping new files entirely).
+ *
+ * Sends ONE IPC to Muninn: `pre-edit-check:evaluate` — Muninn does the
+ * full evaluation (4-way data fan-out, supersedes computation, evaluator,
+ * enclosing-symbol enrichment, telemetry). Replaces the ~450-LOC legacy
+ * hook that did all of that locally.
+ *
+ * Maps recommendation to Claude Code's hook protocol:
+ *   - "investigate-upstream" → exit 2 + stderr message (block)
+ *     UNLESS tool_input.force === true → pre-edit-cache:add + exit 0
+ *   - "review"               → exit 0 + JSON on stdout (advisory)
+ *   - "proceed" / silent     → exit 0, no output
+ *
+ * Failure discipline: every error path exits 0. Hook must not block
+ * Claude Code's turn loop on infra issues. (Same fail-soft carve-out
+ * as kawacode-on-stop — see that file's header for the rule.)
+ *
+ * Opt out with KAWA_PRE_EDIT_CHECK=off.
+ */
+
+import { readFileSync } from 'node:fs'
+
+import { connectToMuninn, request, disconnect } from './services/muninn-ipc.js'
+import { resolveOrigin } from './tools/resolve-origin.js'
+
+interface HookPayload {
+  session_id?: string
+  cwd?: string
+  hook_event_name?: string
+  tool_name?: string
+  tool_input?: {
+    file_path?: string
+    old_string?: string
+    new_string?: string
+    content?: string
+    force?: boolean
+    [key: string]: any
+  }
+}
+
+interface ResolvedTarget {
+  filePath: string // relative to repoPath
+  repoPath: string
+  startLine: number
+  endLine: number
+}
+
+interface SurfacedDecision {
+  decisionId: string
+  type: string
+  summary?: string
+  rationale?: string
+}
+
+interface EvaluateResponse {
+  triggered?: boolean
+  tier?: '1a' | '1b' | null
+  intents?: any[]
+  decisions?: SurfacedDecision[]
+  filtered?: any
+  recommendation: 'proceed' | 'review' | 'investigate-upstream'
+  enclosingSymbol?: { name?: string } | null
+}
+
+function readStdin(): string {
+  try {
+    return readFileSync(0, 'utf8')
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * Find the first occurrence of `needle` in `haystack` and return its 1-based
+ * inclusive line range. Returns null if not found.
+ */
+function locateLineRange(haystack: string, needle: string): { startLine: number; endLine: number } | null {
+  if (!needle) return null
+  const idx = haystack.indexOf(needle)
+  if (idx < 0) return null
+
+  let startLine = 1
+  for (let i = 0; i < idx; i += 1) {
+    if (haystack.charCodeAt(i) === 10) startLine += 1
+  }
+  let extraLines = 0
+  for (let i = 0; i < needle.length; i += 1) {
+    if (needle.charCodeAt(i) === 10) extraLines += 1
+  }
+  return { startLine, endLine: startLine + extraLines }
+}
+
+function resolveTarget(payload: HookPayload): ResolvedTarget | null {
+  const cwd = payload.cwd
+  const toolName = payload.tool_name
+  const input = payload.tool_input
+  if (!cwd || !toolName || !input) return null
+  const filePath = input.file_path
+  if (!filePath) return null
+
+  let absolutePath = filePath
+  let relativePath = filePath
+  if (filePath.startsWith('/')) {
+    if (filePath.startsWith(cwd + '/')) {
+      relativePath = filePath.slice(cwd.length + 1)
+    }
+  } else {
+    absolutePath = `${cwd}/${filePath}`
+  }
+
+  let fileContent: string
+  try {
+    fileContent = readFileSync(absolutePath, 'utf8')
+  } catch {
+    // Either Write to a new file (no prior history) or read failure — skip.
+    return null
+  }
+
+  if (toolName === 'Edit') {
+    const oldString = input.old_string
+    if (!oldString) return null
+    const range = locateLineRange(fileContent, oldString)
+    if (!range) return null
+    return { filePath: relativePath, repoPath: cwd, ...range }
+  }
+
+  if (toolName === 'Write') {
+    const lines = fileContent.split('\n').length
+    return { filePath: relativePath, repoPath: cwd, startLine: 1, endLine: Math.max(1, lines) }
+  }
+
+  return null
+}
+
+function formatBlockMessage(target: ResolvedTarget, res: EvaluateResponse): string {
+  const lines: string[] = []
+  const symbol = res.enclosingSymbol?.name ? ` (in ${res.enclosingSymbol.name})` : ''
+  lines.push(
+    `Pre-edit decision check: prior reasoning is attached to ${target.filePath}:${target.startLine}-${target.endLine}${symbol}.`,
+  )
+  for (const d of res.decisions ?? []) {
+    lines.push(`  • [${d.type}] ${d.summary ?? ''}`)
+    if (d.rationale) lines.push(`    ${d.rationale}`)
+  }
+  lines.push('')
+  lines.push('Override options:')
+  lines.push('  1) record_decision(type:"fork", supersedes:[<id>], rationale:"...") then retry the Edit.')
+  lines.push('  2) Add `force: true` to the Edit args as a one-off escape hatch (acks the surfaced decisions for this session).')
+  return lines.join('\n')
+}
+
+async function main(): Promise<void> {
+  if (process.env.KAWA_PRE_EDIT_CHECK === 'off') {
+    process.exit(0)
+  }
+
+  const raw = readStdin()
+  if (!raw) process.exit(0)
+
+  let payload: HookPayload
+  try {
+    payload = JSON.parse(raw)
+  } catch {
+    process.exit(0)
+  }
+
+  const target = resolveTarget(payload)
+  if (!target) process.exit(0)
+
+  const sessionToken = payload.session_id || 'default'
+
+  // Resolve origin from the repo path. Falls back silently to exit 0
+  // when git isn't available or the path isn't a repo.
+  let repoOrigin: string
+  try {
+    repoOrigin = resolveOrigin(undefined, target.repoPath)
+  } catch {
+    process.exit(0)
+  }
+
+  try {
+    await connectToMuninn()
+  } catch {
+    process.exit(0)
+  }
+
+  let res: EvaluateResponse
+  try {
+    res = await request('pre-edit-check', 'evaluate', {
+      repoOrigin,
+      repoPath: target.repoPath,
+      filePath: target.filePath,
+      startLine: target.startLine,
+      endLine: target.endLine,
+      sessionToken,
+    })
+  } catch {
+    disconnect()
+    process.exit(0)
+  }
+
+  if (res?.recommendation === 'investigate-upstream') {
+    const force = payload.tool_input?.force === true
+    if (force) {
+      // Acknowledge surfaced decisions for this session, then allow.
+      const ids = (res.decisions ?? []).map(d => d.decisionId).filter(Boolean)
+      if (ids.length > 0) {
+        try {
+          await request('pre-edit-cache', 'add', {
+            sessionToken,
+            decisionIds: ids,
+          })
+        } catch {
+          /* best-effort */
+        }
+      }
+      disconnect()
+      process.exit(0)
+    }
+    // Block: exit 2 with stderr message. Claude Code surfaces it to the user.
+    process.stderr.write(formatBlockMessage(target, res) + '\n')
+    disconnect()
+    process.exit(2)
+  }
+
+  if (res?.recommendation === 'review') {
+    const out = {
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        additionalContext: formatBlockMessage(target, res),
+      },
+    }
+    process.stdout.write(JSON.stringify(out) + '\n')
+    disconnect()
+    process.exit(0)
+  }
+
+  // Silent — proceed.
+  disconnect()
+  process.exit(0)
+}
+
+main().catch(() => process.exit(0))

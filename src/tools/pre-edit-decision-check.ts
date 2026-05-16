@@ -2,22 +2,16 @@ import { z } from 'zod'
 import { request } from '../services/muninn-ipc.js'
 import { resolveOrigin } from './resolve-origin.js'
 import { forkFieldsExtensions, extractForkFields } from './_fork-fields.js'
-import { evaluate } from '../pre_edit_check/evaluator.js'
-import {
-  computeSupersedes,
-  type DecisionForSupersedes,
-} from '../pre_edit_check/supersedes.js'
-import { getOverrides } from '../pre_edit_check/cache.js'
-import { logFire } from '../pre_edit_check/telemetry.js'
-import type {
-  DecisionRecord,
-  DecisionType,
-  EvaluatorInput,
-  OverlappingIntent,
-  Tier,
-  Recommendation,
-  FilteredDiagnostic,
-} from '../pre_edit_check/types.js'
+
+/**
+ * Thin proxy to Muninn's `pre-edit-check:evaluate` handler.
+ *
+ * The entire evaluator + supersedes + telemetry + 4-way data fan-out used
+ * to live in this file (~280 LOC pre-thinning). Phase 2 of the kawa.mcp →
+ * kawa.muninn migration moved all that logic into Muninn's
+ * `services/pre_edit_check/` module. This tool's only remaining job is
+ * Zod-schema validation, origin resolution, and forwarding the request.
+ */
 
 export const preEditDecisionCheckSchema = z.object({
   repoOrigin: z
@@ -41,7 +35,7 @@ export const preEditDecisionCheckSchema = z.object({
   intentId: z
     .string()
     .optional()
-    .describe('Active intent ID for supersedes scoping. Auto-detected via intent:get-active when omitted.'),
+    .describe('Active intent ID for supersedes scoping. Auto-detected by Muninn when omitted.'),
   sessionToken: z
     .string()
     .optional()
@@ -62,198 +56,37 @@ export interface EnclosingSymbol {
 
 export interface PreEditDecisionCheckResponse {
   triggered: boolean
-  tier: Tier | null
-  intents?: OverlappingIntent[]
-  decisions?: DecisionRecord[]
-  filtered: FilteredDiagnostic
-  recommendation: Recommendation
+  tier: '1a' | '1b' | null
+  intents?: any[]
+  decisions?: any[]
+  filtered: {
+    activeIntentSupersedes: string[]
+    repoScopedSupersedes: string[]
+    sessionForceOverrides: string[]
+  }
+  recommendation: 'proceed' | 'review' | 'investigate-upstream'
   enclosingSymbol: EnclosingSymbol | null
   language?: string
-}
-
-const DECISION_TYPES: ReadonlySet<DecisionType> = new Set<DecisionType>([
-  'fork',
-  'abandoned',
-  'discovery',
-  'constraint',
-  'tradeoff',
-  'dependency',
-])
-
-function normalizeDecisionType(raw: unknown): DecisionType {
-  if (typeof raw === 'string' && DECISION_TYPES.has(raw as DecisionType)) {
-    return raw as DecisionType
-  }
-  return 'discovery'
-}
-
-function normalizeDecision(d: any): DecisionRecord {
-  return {
-    decisionId: d.decision_id || d.decisionId || d._id || d.id || '',
-    intentId:
-      d.intent_id ||
-      d.intentId ||
-      (Array.isArray(d.intent_ids) ? d.intent_ids[0] : undefined) ||
-      (Array.isArray(d.intentIds) ? d.intentIds[0] : undefined) ||
-      '',
-    summary: d.summary || '',
-    rationale: d.rationale || '',
-    type: normalizeDecisionType(d.decision_type ?? d.decisionType ?? d.type),
-  }
-}
-
-function normalizeOverlappingIntent(raw: any): OverlappingIntent {
-  return {
-    intentId: raw.intentId || raw.id || '',
-    title: raw.title || 'Unknown Intent',
-    blockStartLine: raw.block_start_line || raw.overlappingLines?.blockStartLine || 0,
-    blockEndLine: raw.block_end_line || raw.overlappingLines?.blockEndLine || 0,
-    overlapStart: raw.overlap_start || raw.overlappingLines?.overlapStart || 0,
-    overlapEnd: raw.overlap_end || raw.overlappingLines?.overlapEnd || 0,
-  }
-}
-
-function normalizeEnclosingSymbol(raw: any): EnclosingSymbol | null {
-  if (!raw || raw.symbol == null) return null
-  const s = raw.symbol
-  return {
-    name: s.name || '',
-    fullyQualifiedName: s.fullyQualifiedName || s.fully_qualified_name || s.name || '',
-    kind: s.kind || 'unknown',
-    startLine: s.startLine || s.start_line || 0,
-    endLine: s.endLine || s.end_line || 0,
-    signature: s.signature || '',
-  }
 }
 
 export async function preEditDecisionCheck(
   input: PreEditDecisionCheckInput,
 ): Promise<PreEditDecisionCheckResponse> {
-  const origin = resolveOrigin(input.repoOrigin, input.repoPath)
-
-  // Resolve the active intent ID. Caller may pin it via input.intentId — that's
-  // useful for hooks that fire with stale-but-still-correct context (e.g.,
-  // mid-session activate-intent races). Otherwise ask Muninn for the current
-  // active intent. An empty string is acceptable (no active intent yet).
+  const repoOrigin = resolveOrigin(input.repoOrigin, input.repoPath)
   const forkFields = extractForkFields(input)
-  let activeIntentId = input.intentId ?? ''
-  if (activeIntentId.length === 0) {
-    try {
-      const activeRes = await request('intent', 'get-active', { repoOrigin: origin, ...forkFields })
-      activeIntentId = activeRes?.intent?.id || activeRes?.intentId || ''
-    } catch {
-      // No active intent is a normal state — fall through with empty id.
-    }
-  }
 
-  // Fan out the four IPC calls in parallel. Each is independent — Tier 1a
-  // intents, project-list (for both supersedes computation and Tier 1a
-  // intent-associated decisions), Tier 1b file-filtered decisions, and the
-  // optional enclosing-symbol enrichment.
-  const [tier1aRes, projectListRes, tier1bRes, symbolRes] = await Promise.allSettled([
-    request('intent-block', 'get-for-lines', {
-      repoOrigin: origin,
-      filePath: input.filePath,
-      startLine: input.startLine,
-      endLine: input.endLine,
-      ...forkFields,
-    }),
-    request('decision', 'project-list', { repoOrigin: origin, ...forkFields }),
-    request('decision', 'by-file', { repoOrigin: origin, filePath: input.filePath, ...forkFields }),
-    request('ast', 'get-enclosing-symbol', {
-      repoPath: input.repoPath,
-      filePath: input.filePath,
-      startLine: input.startLine,
-      endLine: input.endLine,
-    }),
-  ])
-
-  const tier1aIntents: OverlappingIntent[] =
-    tier1aRes.status === 'fulfilled'
-      ? ((tier1aRes.value?.intents || []) as any[]).map(normalizeOverlappingIntent)
-      : []
-
-  const allRepoDecisionsRaw: any[] =
-    projectListRes.status === 'fulfilled'
-      ? (projectListRes.value?.decisions || [])
-      : []
-
-  const tier1bDecisionsRaw: any[] =
-    tier1bRes.status === 'fulfilled' ? (tier1bRes.value?.decisions || []) : []
-
-  // Tier 1a's associated decisions: filter the repo decision list down to those
-  // whose intent IDs overlap the overlapping intents. A decision can span
-  // multiple intents post-evolve, hence checking both intent_id and intent_ids[].
-  const tier1aIntentIdSet = new Set(tier1aIntents.map(i => i.intentId).filter(Boolean))
-  const tier1aDecisionsRaw = allRepoDecisionsRaw.filter(d => {
-    const owners = new Set<string>()
-    if (d.intent_id) owners.add(d.intent_id)
-    if (d.intentId) owners.add(d.intentId)
-    if (Array.isArray(d.intent_ids)) for (const id of d.intent_ids) owners.add(id)
-    if (Array.isArray(d.intentIds)) for (const id of d.intentIds) owners.add(id)
-    for (const id of tier1aIntentIdSet) if (owners.has(id)) return true
-    return false
-  })
-
-  const tier1aDecisions = tier1aDecisionsRaw.map(normalizeDecision)
-  const tier1bDecisions = tier1bDecisionsRaw.map(normalizeDecision)
-
-  const supersedesInput: DecisionForSupersedes[] = allRepoDecisionsRaw.map(d => ({
-    intentId: d.intentId,
-    intent_id: d.intent_id,
-    intentIds: d.intentIds,
-    intent_ids: d.intent_ids,
-    supersedes: Array.isArray(d.supersedes) ? d.supersedes : undefined,
-  }))
-  const { activeIntentSupersedes, repoScopedSupersedes } = computeSupersedes(
-    supersedesInput,
-    activeIntentId,
-  )
-
-  const evaluatorInput: EvaluatorInput = {
-    tier1aIntents,
-    tier1aDecisions,
-    tier1bDecisions,
-    activeIntentSupersedes,
-    repoScopedSupersedes,
-    sessionForceOverrides: await getOverrides(input.sessionToken),
-  }
-
-  const result = evaluate(evaluatorInput)
-
-  const symbolPayload = symbolRes.status === 'fulfilled' ? symbolRes.value : null
-  const enclosingSymbol = normalizeEnclosingSymbol(symbolPayload)
-  const language = symbolPayload?.language as string | undefined
-
-  // Phase 4 telemetry — local JSONL only, best-effort. Logs every fire,
-  // including silent ones, so false-positive rate can be measured.
-  logFire({
-    agent: 'mcp',
+  const res = await request('pre-edit-check', 'evaluate', {
+    repoOrigin,
     repoPath: input.repoPath,
     filePath: input.filePath,
     startLine: input.startLine,
     endLine: input.endLine,
-    tier: result.tier,
-    recommendation: result.recommendation,
-    enclosingSymbol: enclosingSymbol?.name ?? null,
-    surfacedDecisions: (result.decisions ?? []).map(d => ({
-      decisionId: d.decisionId,
-      type: d.type,
-    })),
-    filtered: result.filtered,
+    intentId: input.intentId,
     sessionToken: input.sessionToken,
+    ...forkFields,
   })
 
-  return {
-    triggered: result.triggered,
-    tier: result.tier,
-    intents: result.intents,
-    decisions: result.decisions,
-    filtered: result.filtered,
-    recommendation: result.recommendation,
-    enclosingSymbol,
-    language,
-  }
+  return res as PreEditDecisionCheckResponse
 }
 
 export const preEditDecisionCheckTool = {
