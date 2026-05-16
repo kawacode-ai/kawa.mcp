@@ -51,7 +51,9 @@ When bumping the version, update all three in one commit. Don't ship one without
 
 ## Deploy
 
-`./deploy.sh [patch|minor|major]` ships a new version to **both** npm and the [MCP Registry](https://registry.modelcontextprotocol.io). Defaults to a patch bump.
+`./deploy.sh [patch|minor|major | --no-bump]` ships a new version to **both** npm and the [MCP Registry](https://registry.modelcontextprotocol.io). Defaults to a patch bump.
+
+Use `--no-bump` when the version was already bumped in a prior commit — e.g. a semver-breaking change committed alongside the work that requires it. The script reads the existing version from `package.json`, still runs the server.json sync (healing any drift), then proceeds with validate + publish.
 
 ### Pipeline (in order)
 

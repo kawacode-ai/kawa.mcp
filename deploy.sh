@@ -2,12 +2,24 @@
 set -e
 
 # Deploy @kawacode/mcp to npm + MCP Registry
-# Usage: ./deploy.sh [patch|minor|major]
-#   Defaults to patch if no argument given
+# Usage:
+#   ./deploy.sh [patch|minor|major]   — bump version then publish (default: patch)
+#   ./deploy.sh --no-bump             — publish the existing package.json version
+#                                        (use when the version was already bumped
+#                                        in a prior commit, e.g. a semver-breaking
+#                                        change committed alongside the work)
 
-BUMP="${1:-patch}"
+ARG="${1:-patch}"
 DOMAIN="kawacode.ai"
 KEY_FILE="mcp-registry-key.pem"
+
+case "$ARG" in
+  patch|minor|major|--no-bump) ;;
+  *)
+    echo "ERROR: unknown argument '$ARG'. Expected patch | minor | major | --no-bump." >&2
+    exit 1
+    ;;
+esac
 
 # Prerequisites
 if [ ! -f "$KEY_FILE" ]; then
@@ -25,11 +37,18 @@ npm run clean
 echo "==> Building TypeScript"
 npm run build
 
-echo "==> Bumping version ($BUMP)"
-NEW_VERSION=$(npm version "$BUMP" --no-git-tag-version)
-echo "    New version: $NEW_VERSION"
+if [ "$ARG" = "--no-bump" ]; then
+  NEW_VERSION="v$(node -e "process.stdout.write(require('./package.json').version)")"
+  echo "==> Using existing version $NEW_VERSION (--no-bump)"
+else
+  echo "==> Bumping version ($ARG)"
+  NEW_VERSION=$(npm version "$ARG" --no-git-tag-version)
+  echo "    New version: $NEW_VERSION"
+fi
 
-# Keep server.json version in sync
+# Keep server.json version in sync. Runs unconditionally so an existing drift
+# (e.g. someone bumped package.json by hand and forgot server.json) is healed
+# before we publish to the registry, which would reject a mismatch.
 node -e "
 const fs = require('fs');
 const sj = JSON.parse(fs.readFileSync('server.json', 'utf8'));
