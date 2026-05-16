@@ -109,7 +109,7 @@ Single client — owns the socket connection lifecycle, message framing, and `en
 - `src/prompts/` — MCP prompts (e.g. `intentFirstWorkflowPrompt`).
 - `src/resources/` — MCP resources (e.g. `kawa://intent/active`).
 - `src/extract-trigger.ts` + `bin: kawacode-extract-trigger` — CLI helper (separate binary).
-- `bin: kawacode-capture-thoughts` → `build/capture-thoughts.js` (separate binary).
+- `src/pre-edit-decision-check-hook.ts` + `bin: kawacode-pre-edit-decision-check` — PreToolUse Stop-hook CLI.
 
 ---
 
