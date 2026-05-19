@@ -35,6 +35,8 @@ export interface ScoredDecision {
   relatedFiles: string[]
   hasViolations: boolean
   score: number
+  /** Trigger condition / "How to apply". Present only when the original decision was strong-signal enough to carry one. */
+  appliesWhen?: string
 }
 
 export interface GetRelevantContextResponse {
@@ -106,6 +108,7 @@ export async function getRelevantContext(input: GetRelevantContextInput): Promis
       relatedFiles: d.relatedFiles || d.related_files || [],
       hasViolations: (d.constraintViolations || d.constraint_violations || []).length > 0,
       score: d.score || 0,
+      appliesWhen: d.appliesWhen || d.applies_when || d.aw || undefined,
     })),
 
     summary: {

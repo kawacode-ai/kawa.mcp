@@ -17,7 +17,9 @@ const decisionUpdatesSchema = z.object({
   alternatives: z.array(z.string()).optional(),
   relatedFiles: z.array(z.string()).optional(),
   constraintsChecked: z.array(z.string()).optional(),
-  constraintViolations: z.array(constraintViolationSchema).optional()
+  constraintViolations: z.array(constraintViolationSchema).optional(),
+  /** Trigger condition / "How to apply" — pass empty string or null to clear. */
+  appliesWhen: z.string().optional()
 })
 
 export const editSessionDecisionSchema = z.object({
@@ -57,6 +59,10 @@ export const editSessionDecisionTool = {
 Use this when reviewing decisions before commit:
 - action: "update" - Modify the decision fields
 - action: "delete" - Remove the decision entirely
+
+Only ephemeral (in-flight) session decisions are editable. Once a decision is
+synced to Kawa Code, it is immutable — refine it instead by recording a new
+decision with \`supersedes: [<id>]\`.
 
 This allows users to curate their decision history before it's persisted.`,
   inputSchema: editSessionDecisionSchema,

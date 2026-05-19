@@ -32,6 +32,8 @@ export const recordDecisionSchema = z.object({
     .describe('Self-rated confidence in the decision. Meaningful only for extractor and infer_history sources — leave null for deliberate recordings.'),
   sourceThoughtIds: z.array(z.string()).optional()
     .describe('Thought-chain entry IDs this record was extracted from. Only set by the extractor path.'),
+  appliesWhen: z.string().optional()
+    .describe('Trigger condition / "How to apply" — populate ONLY when the decision is plainly conditional (e.g. "language is Go", "when running in production", "when working in module X", "when the error is ECONNRESET"). Skip when the rule has no clean activation condition or when the rationale already implies universality. Treat applies_when as load-bearing context the LLM uses at recall time to decide whether the decision is relevant — not a soft hint. Strong-signal-only.'),
   ...forkFieldsExtensions,
 })
 
@@ -61,6 +63,7 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
     source: input.source,
     confidence: input.confidence,
     sourceThoughtIds: input.sourceThoughtIds || [],
+    appliesWhen: input.appliesWhen,
     ...extractForkFields(input),
   })
 

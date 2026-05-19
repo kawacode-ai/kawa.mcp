@@ -31,6 +31,7 @@ export interface DecisionPoint {
   relatedFiles: string[]
   constraintsChecked: string[]
   constraintViolations: ConstraintViolation[]
+  appliesWhen?: string
 }
 
 export interface GetSessionDecisionsResponse {
@@ -59,7 +60,8 @@ export async function getSessionDecisions(input: GetSessionDecisionsInput): Prom
     consequences: d.consequences,
     relatedFiles: d.related_files || d.relatedFiles || [],
     constraintsChecked: d.constraints_checked || d.constraintsChecked || [],
-    constraintViolations: d.constraint_violations || d.constraintViolations || []
+    constraintViolations: d.constraint_violations || d.constraintViolations || [],
+    appliesWhen: d.applies_when || d.appliesWhen || d.aw || undefined
   }))
 
   return {
