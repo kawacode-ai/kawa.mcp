@@ -42,8 +42,16 @@ For exploration turns, still call `get_relevant_context` to enrich your answer �
 `create_and_activate_intent` auto-detects conflicts. When the tool returns `action: "conflict"`:
 
 1. Present each conflict to the user — severity, the conflicting intent's title/author, nature of the overlap.
-2. Ask: "These conflicts were detected. Should I proceed anyway?"
-3. On approval, retry `create_and_activate_intent` with `force: true`. Bypassed conflict IDs are recorded for audit.
+2. **Classify the conflict**:
+   - **Supersession** — the new work *replaces* or *retargets* the conflicting intent (same problem area, different approach; the old intent's assumptions no longer hold).
+   - **Independent overlap** — the conflict is structural (same files / domain) but the new work is unrelated to the old one's purpose.
+3. Ask the user for the disposition. **For supersession**, prefer this flow:
+   - Create the new intent with `force: true`.
+   - Then `complete_intent(intentId=<old>, status="superseded", supersededBy=<new>)`. This requires the old intent to be active, so: `activate_intent(<old>, force: true)` → `complete_intent(... status="superseded" ...)` → `activate_intent(<new>)`.
+   - The lineage is durably recorded and queryable from either side.
+4. **For independent overlap**, just retry `create_and_activate_intent` with `force: true`. Bypassed conflict IDs are recorded for audit, but no formal relationship is stored — the two intents remain unrelated in lineage walks.
+
+`force: true` only bypasses the conflict-detection block; it does NOT record any relationship. Always reach for supersession first when the new work genuinely replaces the old.
 
 ---
 
