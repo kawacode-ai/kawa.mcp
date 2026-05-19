@@ -6,11 +6,15 @@
  * and sends two short IPCs to Muninn:
  *
  *   1. capture-thoughts:capture { sessionId, transcriptPath, cwd }
- *        → Muninn reads the transcript, filters thinking blocks, appends
- *          JSONL to ~/.kawa-code/thoughts/active/session-{id}.jsonl
+ *        → Muninn reads the transcript, extracts the assistant's text
+ *          content blocks (the model's visible responses), and appends them
+ *          as JSONL to ~/.kawa-code/thoughts/active/session-{id}.jsonl.
+ *          Thinking blocks are deliberately ignored — Claude Code redacts
+ *          their plaintext on disk, so they carry no recoverable signal.
  *   2. extractor:trigger { session_id, cwd }
  *        → Muninn wakes the (debounced) extractor service which reads the
- *          fresh JSONL and emits ephemeral decisions.
+ *          fresh JSONL and emits ephemeral decisions verbalized in the
+ *          assistant's responses.
  *
  * Replaces the legacy kawacode-capture-thoughts (Node CLI that did the file
  * I/O itself, never merged to main) AND kawacode-extract-trigger (separate
