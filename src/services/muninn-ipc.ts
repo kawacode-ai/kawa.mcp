@@ -249,9 +249,17 @@ function routeResponse(msg: any): void {
     }
     const data = msg.data || {}
     if (data.success === false) {
-      // Conflict responses carry structured `conflicts` data that the calling
-      // tool must present to the user — not a dispatch failure. Let them pass.
-      if (data.conflict === true) {
+      // Some handlers return structured failure shapes the calling tool is
+      // designed to interpret and present — these are data, not dispatch
+      // failures, so resolve (don't reject) and let the tool layer handle them:
+      //   - create_and_activate_intent similarity conflicts: { conflict: true, conflicts: [...] }
+      //   - complete_intent distillation conflicts:          { reason: "conflicts", conflicts: [...] }
+      //   - complete_intent transient failures:              { reason: "transient-failure", error, failedStage }
+      // Without this, complete_intent's conflict shape (no `conflict` flag, no
+      // `error` field) fell through to the generic reject below and surfaced as
+      // the opaque "no error message" — bypassing complete-intent.ts's
+      // conflict-surfacing logic entirely.
+      if (data.conflict === true || typeof data.reason === 'string' || Array.isArray(data.conflicts)) {
         pending.resolve(data)
         return
       }
