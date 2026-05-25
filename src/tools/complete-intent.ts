@@ -117,13 +117,20 @@ export async function completeIntent(input: CompleteIntentInput): Promise<Comple
     }
   }
 
+  // Muninn's v2 distillation pipeline (Sonnet distill + per-pair Haiku conflict
+  // judge + recall embeddings) can run well past the 30s default — measured
+  // 51s for superseded on an M3 (see kawa.muninn intent.rs). Override the
+  // per-call timeout so conflict / transient-failure responses actually come
+  // back instead of the client hanging up first. Mirrors inference:estimate's
+  // ESTIMATE_TIMEOUT_MS (decision 092172fb: per-call override, not a raised global).
+  const COMPLETE_TIMEOUT_MS = 180_000
   const res = await request('intent', 'complete', {
     repoOrigin: actualOrigin,
     status: input.status,
     commitSha: input.commitSha,
     supersededBy: input.supersededBy,
     ...extractForkFields(input),
-  })
+  }, COMPLETE_TIMEOUT_MS)
 
   const intentId = res.intentId || ''
   const intentTitle = res.intentTitle || 'Intent'
